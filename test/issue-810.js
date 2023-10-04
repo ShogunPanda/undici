@@ -128,7 +128,7 @@ test('https://github.com/mcollina/undici/issues/810 pipelining 2', (t) => {
       path: '/',
       method: 'GET'
     }, (err, data) => {
-      t.equal(err.code, 'HPE_INVALID_CONSTANT')
+      t.equal(err.code, 'HPE_UNEXPECTED_CHARACTER')
       t.type(err, errors.HTTPParserError)
     })
   })

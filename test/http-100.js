@@ -52,7 +52,7 @@ test('error 103 body', (t) => {
       path: '/',
       method: 'GET'
     }, (err) => {
-      t.equal(err.code, 'HPE_INVALID_CONSTANT')
+      t.equal(err.code, 'HPE_UNEXPECTED_CONTENT_LENGTH')
     })
     client.on('disconnect', () => {
       t.pass()

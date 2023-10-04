@@ -13,7 +13,7 @@ test('basic upgrade', (t) => {
   const server = net.createServer((c) => {
     c.on('data', (d) => {
       t.ok(/upgrade: websocket/i.test(d))
-      c.write('HTTP/1.1 101\r\n')
+      c.write('HTTP/1.1 101 Switching Protocols\r\n')
       c.write('hello: world\r\n')
       c.write('connection: upgrade\r\n')
       c.write('upgrade: websocket\r\n')
@@ -69,7 +69,7 @@ test('basic upgrade promise', (t) => {
 
   const server = net.createServer((c) => {
     c.on('data', (d) => {
-      c.write('HTTP/1.1 101\r\n')
+      c.write('HTTP/1.1 101 Switching Protocols\r\n')
       c.write('hello: world\r\n')
       c.write('connection: upgrade\r\n')
       c.write('upgrade: websocket\r\n')
@@ -116,7 +116,7 @@ test('upgrade error', (t) => {
 
   const server = net.createServer((c) => {
     c.on('data', (d) => {
-      c.write('HTTP/1.1 101\r\n')
+      c.write('HTTP/1.1 101 Switching Protocols\r\n')
       c.write('hello: world\r\n')
       c.write('connection: upgrade\r\n')
       c.write('\r\n')
@@ -177,7 +177,7 @@ test('basic upgrade2', (t) => {
 
   const server = http.createServer()
   server.on('upgrade', (req, c, head) => {
-    c.write('HTTP/1.1 101\r\n')
+    c.write('HTTP/1.1 101 Switching Protocols\r\n')
     c.write('hello: world\r\n')
     c.write('connection: upgrade\r\n')
     c.write('upgrade: websocket\r\n')
@@ -229,7 +229,7 @@ test('upgrade wait for empty pipeline', (t) => {
   })
   server.on('upgrade', (req, c, firstBodyChunk) => {
     t.equal(canConnect, true)
-    c.write('HTTP/1.1 101\r\n')
+    c.write('HTTP/1.1 101 Switching Protocols\r\n')
     c.write('hello: world\r\n')
     c.write('connection: upgrade\r\n')
     c.write('upgrade: websocket\r\n')
@@ -327,7 +327,7 @@ test('basic aborted after res', (t) => {
   const signal = new EE()
   const server = http.createServer()
   server.on('upgrade', (req, c, head) => {
-    c.write('HTTP/1.1 101\r\n')
+    c.write('HTTP/1.1 101 Switching Protocols\r\n')
     c.write('hello: world\r\n')
     c.write('connection: upgrade\r\n')
     c.write('upgrade: websocket\r\n')
@@ -361,7 +361,7 @@ test('basic upgrade error', (t) => {
 
   const server = net.createServer((c) => {
     c.on('data', (d) => {
-      c.write('HTTP/1.1 101\r\n')
+      c.write('HTTP/1.1 101 Switching Protocols\r\n')
       c.write('hello: world\r\n')
       c.write('connection: upgrade\r\n')
       c.write('upgrade: websocket\r\n')

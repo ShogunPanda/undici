@@ -1,7 +1,7 @@
 # Contributing to Undici
 
 * [Guides](#guides)
-  * [Update `llhttp`](#update-llhttp)
+  * [Update `milo`](#update-milo)
   * [Lint](#lint)
   * [Test](#test)
   * [Coverage](#coverage)
@@ -12,60 +12,27 @@
 <a id="guides"></a>
 ## Guides
 
-<a id="update-llhttp"></a>
-### Update `llhttp`
+<a id="update-milo"></a>
+### Update `milo`
 
-The HTTP parser used by `undici` is a WebAssembly build of [`llhttp`](https://github.com/nodejs/llhttp).
-
-While the project itself provides a way to compile targeting WebAssembly, at the moment we embed the sources
-directly and compile the module in `undici`.
-
-The `deps/llhttp/include` folder contains the C header files, while the `deps/llhttp/src` folder contains
-the C source files needed to compile the module.
-
-The `lib/llhttp` folder contains the `.js` transpiled assets required to implement a parser.
+The HTTP parser used by `undici` is a WebAssembly build of [`milo`](https://github.com/ShogunPanda/milo).
 
 The following are the steps required to perform an update.
 
-#### Clone the [llhttp](https://github.com/nodejs/llhttp) project
+// TODO@PI: Verify these instructions
+#### Clone the [milo](https://github.com/nodejs/milo) project inside the deps folder
 
 ```bash
-git clone git@github.com:nodejs/llhttp.git
-
-cd llhttp
+cd deps 
+rm -rf milo
+git clone git@github.com:ShogunPanda/milo.git
+cd milo
 ```
-#### Checkout a `llhttp` release
+
+#### Checkout a `milo` release
 
 ```bash
 git checkout <tag>
-```
-
-#### Install the `llhttp` dependencies
-
-```bash
-npm i
-```
-
-#### Run the wasm build script
-
-> This requires [docker](https://www.docker.com/) installed on your machine.
-
-```bash
-npm run build-wasm
-```
-
-#### Copy the sources to `undici`
-
-```bash
-cp build/wasm/*.js <your-path-to-undici>/lib/llhttp/
-
-cp build/wasm/*.js.map <your-path-to-undici>/lib/llhttp/
-
-cp build/wasm/*.d.ts <your-path-to-undici>/lib/llhttp/
-
-cp src/native/api.c src/native/http.c build/c/llhttp.c <your-path-to-undici>/deps/llhttp/src/
-
-cp src/native/api.h build/llhttp.h <your-path-to-undici>/deps/llhttp/include/
 ```
 
 #### Build the WebAssembly module in `undici`
@@ -73,14 +40,18 @@ cp src/native/api.h build/llhttp.h <your-path-to-undici>/deps/llhttp/include/
 > This requires [docker](https://www.docker.com/) installed on your machine.
 
 ```bash
-cd <your-path-to-undici>
-
-npm run build:wasm
+npm run build:milo
 ```
 
-#### Commit the contents of lib/llhttp
+You can also build the debug version by running
 
-Create a commit which includes all of the updated files in lib/llhttp.
+```bash
+MILO_PROFILE=debug npm run build:milo
+```
+
+#### Commit the contents of deps/milo and lib/milo
+
+Create a commit which includes all of the updated files in `deps/milo` and `lib/milo`.
 
 <a id="update-wpts"></a>
 ### Update `WPTs`

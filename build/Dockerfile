@@ -1,18 +1,24 @@
-FROM node:20-alpine@sha256:4559bc033338938e54d0a3c2f0d7c3ad7d1d13c28c4c405b85c6b3a26f4ce5f7
+FROM rust:1.72.1
 
 ARG UID=1000
 ARG GID=1000
 
-RUN apk add -U clang lld wasi-sdk
-RUN mkdir /home/node/undici
+# Install wasm-pack
+RUN cargo install wasm-pack
 
-WORKDIR /home/node/undici
+# Install the Rust required toolchain
+RUN rustup toolchain install nightly
 
-COPY package.json .
-COPY build build
-COPY deps deps
-COPY lib lib
+# Install Node
+RUN \
+  apt update -y \
+  && apt install -y ca-certificates curl gnupg \
+  && mkdir -p /etc/apt/keyrings \
+  && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+  && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list \
+  && apt update -y \
+  && apt install -y nodejs
 
-RUN npm i
+RUN apt install binaryen
 
-USER node
+WORKDIR /home/milo

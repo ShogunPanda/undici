@@ -79,3 +79,7 @@ fuzz-results-*.json
 # Bundle output
 undici-fetch.js
 /test/imports/undici-import.js
+
+# Milo output
+deps/milo/**/dist
+deps/milo/**/target

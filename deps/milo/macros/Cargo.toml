@@ -1,0 +1,16 @@
+[package]
+name = "milo-parser-macros"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+proc-macro = true
+
+[dependencies]
+indexmap = "2.0.0"
+proc-macro2 = "1.0.63"
+regex = "1.9.1"
+quote = "1.0.28"
+serde_yaml = "0.9.25"
+syn = { version = "2.0.18", features = ["full", "extra-traits"] }

@@ -1,0 +1,11 @@
+{
+  "name": "milo",
+  "version": "0.1.0",
+  "files": [
+    "milo_bg.wasm",
+    "milo.js",
+    "milo.d.ts"
+  ],
+  "main": "milo.js",
+  "types": "milo.d.ts"
+}

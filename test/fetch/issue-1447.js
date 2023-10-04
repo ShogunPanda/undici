@@ -1,6 +1,9 @@
 'use strict'
 
+const { resolve } = require('path')
 const { test } = require('tap')
+
+process.env.MILO_BASE_PATH = resolve(__dirname, '../../lib')
 
 const undici = require('../..')
 const { fetch: theoreticalGlobalFetch } = require('../../undici-fetch')

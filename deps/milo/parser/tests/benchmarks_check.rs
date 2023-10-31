@@ -1,7 +1,9 @@
 #[cfg(test)]
 mod test {
-  use milo::test_utils::{create_parser, http};
-  use milo::State;
+  use milo::{
+    test_utils::{create_parser, http},
+    STATE_ERROR,
+  };
 
   #[test]
   fn benchmark_seanmonstar_httparse() {
@@ -21,9 +23,9 @@ mod test {
     );
 
     let parser = create_parser();
-    let consumed = unsafe { parser.parse(message.as_ptr(), message.len()) };
+    let consumed = parser.parse(message.as_ptr(), message.len());
     assert!(consumed == message.len());
-    assert!(!matches!(parser.state.get(), State::ERROR));
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
   }
 
   #[test]
@@ -48,8 +50,8 @@ mod test {
     );
 
     let parser = create_parser();
-    let consumed = unsafe { parser.parse(message.as_ptr(), message.len()) };
+    let consumed = parser.parse(message.as_ptr(), message.len());
     assert!(consumed == message.len());
-    assert!(!matches!(parser.state.get(), State::ERROR));
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
   }
 }

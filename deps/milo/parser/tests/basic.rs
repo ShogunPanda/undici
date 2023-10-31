@@ -3,7 +3,7 @@ mod test {
   use std::ffi::c_uchar;
 
   use milo::test_utils::{create_parser, http};
-  use milo::{Parser, State, REQUEST, RESPONSE};
+  use milo::{Parser, REQUEST, RESPONSE, STATE_ERROR, STATE_FINISH, STATE_HEADER_NAME, STATE_START};
 
   #[test]
   fn basic_disable_autodetect() {
@@ -30,14 +30,14 @@ mod test {
     );
 
     parser.mode.set(REQUEST);
-    unsafe { parser.parse(response.as_ptr(), response.len()) };
-    assert!(matches!(parser.state.get(), State::ERROR));
+    parser.parse(response.as_ptr(), response.len());
+    assert!(matches!(parser.state.get(), STATE_ERROR));
 
     parser.reset(false);
 
     parser.mode.set(RESPONSE);
-    unsafe { parser.parse(request.as_ptr(), request.len()) };
-    assert!(matches!(parser.state.get(), State::ERROR));
+    parser.parse(request.as_ptr(), request.len());
+    assert!(matches!(parser.state.get(), STATE_ERROR));
   }
 
   #[test]
@@ -48,10 +48,10 @@ mod test {
     let sample1 = http(r#"GE"#);
     let sample2 = http(r#"T / HTTP/1.1\r\nHost: foo\r\n\r\n"#);
 
-    unsafe { parser.parse(sample1.as_ptr(), sample1.len()) };
-    unsafe { parser.parse(sample2.as_ptr(), sample2.len()) };
+    parser.parse(sample1.as_ptr(), sample1.len());
+    parser.parse(sample2.as_ptr(), sample2.len());
 
-    assert!(!matches!(parser.state.get(), State::ERROR));
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
   }
 
   #[test]
@@ -65,20 +65,20 @@ mod test {
     let sample5 = http(r#"Value"#);
     let sample6 = http(r#"\r\n\r\n"#);
 
-    let consumed1 = unsafe { parser.parse(sample1.as_ptr(), sample1.len()) };
+    let consumed1 = parser.parse(sample1.as_ptr(), sample1.len());
     assert!(consumed1 == sample1.len() - 4);
-    let consumed2 = unsafe { parser.parse(sample2.as_ptr(), sample2.len()) };
+    let consumed2 = parser.parse(sample2.as_ptr(), sample2.len());
     assert!(consumed2 == sample2.len() + 4);
-    let consumed3 = unsafe { parser.parse(sample3.as_ptr(), sample3.len()) };
+    let consumed3 = parser.parse(sample3.as_ptr(), sample3.len());
     assert!(consumed3 == 0);
-    let consumed4 = unsafe { parser.parse(sample4.as_ptr(), sample4.len()) };
+    let consumed4 = parser.parse(sample4.as_ptr(), sample4.len());
     assert!(consumed4 == sample3.len() + sample4.len());
-    let consumed5 = unsafe { parser.parse(sample5.as_ptr(), sample5.len()) };
+    let consumed5 = parser.parse(sample5.as_ptr(), sample5.len());
     assert!(consumed5 == 0);
-    let consumed6 = unsafe { parser.parse(sample6.as_ptr(), sample6.len()) };
+    let consumed6 = parser.parse(sample6.as_ptr(), sample6.len());
     assert!(consumed6 == sample5.len() + sample6.len());
 
-    assert!(!matches!(parser.state.get(), State::ERROR));
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
   }
 
   #[test]
@@ -107,8 +107,8 @@ mod test {
       "#,
     );
 
-    unsafe { parser.parse(message.as_ptr(), message.len()) };
-    assert!(!matches!(parser.state.get(), State::ERROR));
+    parser.parse(message.as_ptr(), message.len());
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
   }
 
   #[test]
@@ -129,8 +129,8 @@ mod test {
       "#,
     );
 
-    unsafe { parser.parse(message.as_ptr(), message.len()) };
-    assert!(matches!(parser.state.get(), State::FINISH));
+    parser.parse(message.as_ptr(), message.len());
+    assert!(matches!(parser.state.get(), STATE_FINISH));
   }
 
   #[test]
@@ -160,8 +160,8 @@ mod test {
       "#,
     );
 
-    unsafe { parser.parse(message.as_ptr(), message.len()) };
-    assert!(!matches!(parser.state.get(), State::ERROR));
+    parser.parse(message.as_ptr(), message.len());
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
   }
 
   #[test]
@@ -184,8 +184,8 @@ mod test {
       "#,
     );
 
-    unsafe { parser.parse(message.as_ptr(), message.len()) };
-    assert!(!matches!(parser.state.get(), State::ERROR));
+    parser.parse(message.as_ptr(), message.len());
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
   }
 
   #[test]
@@ -196,14 +196,14 @@ mod test {
     let sample2 = http(r#"67"#);
     let sample3 = http(r#"890\r\n"#);
 
-    let consumed1 = unsafe { parser.parse(sample1.as_ptr(), sample1.len()) };
+    let consumed1 = parser.parse(sample1.as_ptr(), sample1.len());
     assert!(consumed1 == sample1.len());
-    let consumed2 = unsafe { parser.parse(sample2.as_ptr(), sample2.len()) };
+    let consumed2 = parser.parse(sample2.as_ptr(), sample2.len());
     assert!(consumed2 == sample2.len());
-    let consumed3 = unsafe { parser.parse(sample3.as_ptr(), sample3.len()) };
+    let consumed3 = parser.parse(sample3.as_ptr(), sample3.len());
     assert!(consumed3 == sample3.len());
 
-    assert!(!matches!(parser.state.get(), State::ERROR));
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
   }
 
   #[test]
@@ -214,14 +214,14 @@ mod test {
     let sample2 = http(r#"67"#);
     let sample3 = http(r#"890\r\n0\r\nx-foo: value\r\n\r\n"#);
 
-    let consumed1 = unsafe { parser.parse(sample1.as_ptr(), sample1.len()) };
+    let consumed1 = parser.parse(sample1.as_ptr(), sample1.len());
     assert!(consumed1 == sample1.len());
-    let consumed2 = unsafe { parser.parse(sample2.as_ptr(), sample2.len()) };
+    let consumed2 = parser.parse(sample2.as_ptr(), sample2.len());
     assert!(consumed2 == sample2.len());
-    let consumed3 = unsafe { parser.parse(sample3.as_ptr(), sample3.len()) };
+    let consumed3 = parser.parse(sample3.as_ptr(), sample3.len());
     assert!(consumed3 == sample3.len());
 
-    assert!(!matches!(parser.state.get(), State::ERROR));
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
   }
 
   #[test]
@@ -238,8 +238,8 @@ mod test {
       "#,
     );
 
-    unsafe { parser.parse(close_connection.as_ptr(), close_connection.len()) };
-    assert!(matches!(parser.state.get(), State::FINISH));
+    parser.parse(close_connection.as_ptr(), close_connection.len());
+    assert!(matches!(parser.state.get(), STATE_FINISH));
 
     parser.reset(false);
 
@@ -252,8 +252,8 @@ mod test {
       "#,
     );
 
-    unsafe { parser.parse(keep_alive_connection.as_ptr(), keep_alive_connection.len()) };
-    assert!(matches!(parser.state.get(), State::START));
+    parser.parse(keep_alive_connection.as_ptr(), keep_alive_connection.len());
+    assert!(matches!(parser.state.get(), STATE_START));
   }
 
   #[test]
@@ -273,41 +273,42 @@ mod test {
       .callbacks
       .on_headers
       .set(|p: &Parser, _data: *const c_uchar, _size: usize| -> isize {
+        println!("CALLED\n\n");
         p.pause();
         0
       });
 
     assert!(!parser.paused.get());
 
-    let consumed1 = unsafe { parser.parse(sample1.as_ptr(), sample1.len()) };
+    let consumed1 = parser.parse(sample1.as_ptr(), sample1.len());
     assert!(consumed1 == sample1.len());
 
     assert!(!parser.paused.get());
-    let consumed2 = unsafe { parser.parse(sample2.as_ptr(), sample2.len()) };
+    let consumed2 = parser.parse(sample2.as_ptr(), sample2.len());
     assert!(consumed2 == sample2.len() - 3);
     assert!(parser.paused.get());
 
-    let consumed3 = unsafe { parser.parse(sample3.as_ptr(), sample3.len()) };
+    let consumed3 = parser.parse(sample3.as_ptr(), sample3.len());
     assert!(consumed3 == 0);
 
     assert!(parser.paused.get());
     parser.resume();
     assert!(!parser.paused.get());
 
-    let consumed4 = unsafe { parser.parse(sample3.as_ptr(), sample3.len()) };
+    let consumed4 = parser.parse(sample3.as_ptr(), sample3.len());
     assert!(consumed4 == sample3.len());
     assert!(!parser.paused.get());
 
-    assert!(!matches!(parser.state.get(), State::ERROR));
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
   }
 
   #[test]
   fn finish() {
     let parser = create_parser();
 
-    assert!(matches!(parser.state.get(), State::START));
+    assert!(matches!(parser.state.get(), STATE_START));
     parser.finish();
-    assert!(matches!(parser.state.get(), State::FINISH));
+    assert!(matches!(parser.state.get(), STATE_FINISH));
 
     parser.reset(false);
 
@@ -321,10 +322,10 @@ mod test {
       "#,
     );
 
-    unsafe { parser.parse(close_connection.as_ptr(), close_connection.len()) };
-    assert!(matches!(parser.state.get(), State::FINISH));
+    parser.parse(close_connection.as_ptr(), close_connection.len());
+    assert!(matches!(parser.state.get(), STATE_FINISH));
     parser.finish();
-    assert!(matches!(parser.state.get(), State::FINISH));
+    assert!(matches!(parser.state.get(), STATE_FINISH));
 
     parser.reset(false);
 
@@ -337,10 +338,10 @@ mod test {
       "#,
     );
 
-    unsafe { parser.parse(keep_alive_connection.as_ptr(), keep_alive_connection.len()) };
-    assert!(matches!(parser.state.get(), State::START));
+    parser.parse(keep_alive_connection.as_ptr(), keep_alive_connection.len());
+    assert!(matches!(parser.state.get(), STATE_START));
     parser.finish();
-    assert!(matches!(parser.state.get(), State::FINISH));
+    assert!(matches!(parser.state.get(), STATE_FINISH));
 
     parser.reset(false);
 
@@ -350,10 +351,10 @@ mod test {
       "#,
     );
 
-    unsafe { parser.parse(incomplete.as_ptr(), incomplete.len()) };
+    parser.parse(incomplete.as_ptr(), incomplete.len());
 
-    assert!(matches!(parser.state.get(), State::HEADER_NAME));
+    assert!(matches!(parser.state.get(), STATE_HEADER_NAME));
     parser.finish();
-    assert!(matches!(parser.state.get(), State::ERROR));
+    assert!(matches!(parser.state.get(), STATE_ERROR));
   }
 }

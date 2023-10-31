@@ -7,7 +7,7 @@ import remarkParse from 'remark-parse'
 import remarkStringify from 'remark-stringify'
 import { unified } from 'unified'
 
-function fatal (msg, node) {
+function fatal(msg, node) {
   if (node) {
     msg += ` (line ${node.position.start.line}, column ${node.position.start.column})`
   }
@@ -16,17 +16,17 @@ function fatal (msg, node) {
   process.exit(1)
 }
 
-function prepareTest () {
+function prepareTest() {
   return { title: '', input: '', output: '' }
 }
 
-async function serializeText (node) {
+async function serializeText(node) {
   const md = await unified().use(remarkStringify).stringify(node)
 
   return md.trim().replace(/^#+\s+/, '')
 }
 
-async function streamToString (stream) {
+async function streamToString(stream) {
   let buffer = ''
 
   for await (const chunk of stream) {
@@ -36,7 +36,7 @@ async function streamToString (stream) {
   return buffer
 }
 
-async function main () {
+async function main() {
   if (process.argv.length < 3) {
     fatal(`Usage: ${process.argv[1]} [FILE]`)
   }

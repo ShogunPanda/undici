@@ -8,28 +8,19 @@ use std::os::raw::{c_char, c_uchar, c_void};
 use std::ptr;
 use std::slice::from_raw_parts;
 use std::str;
+use std::sync::OnceLock;
 #[cfg(all(debug_assertions, feature = "milo_debug_loop"))]
 use std::time::Instant;
 
 #[allow(unused_imports)]
 use js_sys::{Function, Uint8Array};
+use milo_parser_macros::*;
 #[allow(unused_imports)]
-use milo_parser_macros::generate_callbacks_wasm_setters;
-#[allow(unused_imports)]
-use milo_parser_macros::{
-  apply_state, c_match_error_code_string, c_match_state_string, callback, callback_no_return, callbacks,
-  case_insensitive_string, char, consume, crlf, digit, double_crlf, errors, fail, find_method, generate_callbacks,
-  generate_callbacks_wasm, generate_constants, hex_digit, initial_state, method, move_to, otherwise, parse, state,
-  string, string_length, suspend, token, token_value, url,
-};
-use milo_parser_macros::{generate_enums, mixin, use_mixin};
 use wasm_bindgen::prelude::*;
 
 /// cbindgen:ignore
 #[cfg(not(target_family = "wasm"))]
 pub mod test_utils;
-
-generate_constants!();
 
 errors!(
   NONE,
@@ -136,17 +127,6 @@ state!(message, {
     _ => suspend!(),
   }
 });
-
-state!(end, {
-  let must_close = parser.connection.get() == CONNECTION_CLOSE;
-  parser.connection.set(0);
-
-  if must_close {
-    move_to!(finish, 0)
-  } else {
-    move_to!(start, 0)
-  }
-});
 // #endregion general
 
 // #region request - Request line parsing
@@ -162,7 +142,7 @@ state!(request, {
 
 // RFC 9112 section 3.1
 state!(request_method, {
-  consume!(token!());
+  consume!(token);
 
   match data[consumed] {
     char!(' ') if consumed > 0 => {
@@ -178,7 +158,7 @@ state!(request_method, {
 
 // RFC 9112 section 3.2
 state!(request_url, {
-  consume!(url!());
+  consume!(url);
 
   match data[consumed] {
     char!(' ') if consumed > 0 => {
@@ -284,7 +264,7 @@ state!(response_status, {
 });
 
 state!(response_reason, {
-  consume!(token_value!());
+  consume!(token_value);
 
   match data[consumed..] {
     crlf!() => {
@@ -368,7 +348,7 @@ state!(header_name, {
     _ => {}
   }
 
-  consume!(token!());
+  consume!(token);
 
   match data[consumed..] {
     [char!(':'), ..] if consumed > 0 => {
@@ -387,7 +367,7 @@ state!(header_name, {
 // RFC 9112 section 6.1
 state!(header_transfer_encoding, {
   // Ignore trailing OWS
-  consume!(char!('\t') | char!(' '));
+  consume!(ws);
   parser.position.update(|x| x + (consumed as u64));
   data = &data[consumed..];
 
@@ -415,7 +395,7 @@ state!(header_transfer_encoding, {
     );
   }
 
-  consume!(token_value!());
+  consume!(token_value);
 
   if consumed == 0 {
     return fail!(INVALID_TRANSFER_ENCODING, "Invalid header field value character");
@@ -440,11 +420,11 @@ state!(header_transfer_encoding, {
 // RFC 9112 section 6.2
 state!(header_content_length, {
   // Ignore trailing OWS
-  consume!(char!('\t') | char!(' '));
+  consume!(ws);
   parser.position.update(|x| x + (consumed as u64));
   data = &data[consumed..];
 
-  consume!(digit!());
+  consume!(digit);
 
   if consumed == 0 {
     return fail!(INVALID_CONTENT_LENGTH, "Invalid header field value character");
@@ -470,7 +450,7 @@ state!(header_content_length, {
 // RFC 9112 section 9.6
 state!(header_connection, {
   // Ignore trailing OWS
-  consume!(char!('\t') | char!(' '));
+  consume!(ws);
   parser.position.update(|x| x + (consumed as u64));
   data = &data[consumed..];
 
@@ -493,7 +473,7 @@ state!(header_connection, {
     _ => {}
   }
 
-  consume!(token_value!());
+  consume!(token_value);
 
   if consumed == 0 {
     return fail!(UNEXPECTED_CHARACTER, "Invalid header field value character");
@@ -518,11 +498,12 @@ state!(header_connection, {
 // RFC 9110 section 5.5 and 5.6
 state!(header_value, {
   // Ignore trailing OWS
-  consume!(char!('\t') | char!(' '));
+  consume!(ws);
+
   parser.position.update(|x| x + (consumed as u64));
   data = &data[consumed..];
 
-  consume!(token_value!());
+  consume!(token_value);
 
   if consumed == 0 {
     return fail!(UNEXPECTED_CHARACTER, "Invalid header field value character");
@@ -632,11 +613,18 @@ fn complete_message(parser: &Parser, advance: isize) -> isize {
   let connection = parser.connection.get();
 
   parser.clear();
-  parser.continue_without_data.set(true);
   parser.connection.set(connection);
 
   callback!(on_reset);
-  move_to!(end, advance)
+
+  let must_close = parser.connection.get() == CONNECTION_CLOSE;
+  parser.connection.set(0);
+
+  if must_close {
+    move_to!(finish, advance)
+  } else {
+    move_to!(start, advance)
+  }
 }
 
 // #region common_body - Check if the body uses chunked encoding
@@ -696,7 +684,7 @@ state!(body_with_no_length, {
 // #region body via chunked Transfer-Encoding
 // RFC 9112 section 7.1
 state!(chunk_length, {
-  consume!(hex_digit!());
+  consume!(hex_digit);
 
   match data[consumed..] {
     [char!(';'), ..] if consumed > 0 => {
@@ -728,7 +716,7 @@ state!(chunk_length, {
 });
 
 state!(chunk_extension_name, {
-  consume!(token!());
+  consume!(token);
 
   if consumed == 0 {
     return fail!(UNEXPECTED_CHARACTER, "Invalid chunk extension name character");
@@ -759,7 +747,7 @@ state!(chunk_extension_value, {
     return move_to!(chunk_extension_quoted_value, 1);
   }
 
-  consume!(token!());
+  consume!(token);
 
   if consumed == 0 {
     return fail!(UNEXPECTED_CHARACTER, "Invalid chunk extension value character");
@@ -783,7 +771,7 @@ state!(chunk_extension_value, {
 // RFC 9110 section 5.6.4
 state!(chunk_extension_quoted_value, {
   // Also consume 0x22 and 0x5c as the quoted-pair validation is performed after
-  consume!(char!('\t') | char!(' ') | 0x21..=0x7e);
+  consume!(token_value_quoted);
 
   if consumed == 0 || data[consumed - 1] != char!('"') {
     return fail!(UNEXPECTED_CHARACTER, "Invalid chunk extension quoted value");
@@ -864,10 +852,7 @@ state!(chunk_end, {
 
 state!(crlf_after_last_chunk, {
   match data {
-    crlf!() => {
-      parser.continue_without_data.set(true);
-      complete_message(parser, 2)
-    }
+    crlf!() => complete_message(parser, 2),
     otherwise!(2) => fail!(UNEXPECTED_CHARACTER, "Expected CRLF after the last chunk"),
     _ => suspend!(),
   }
@@ -878,7 +863,7 @@ state!(crlf_after_last_chunk, {
 // #region trailers - Trailers
 // RFC 9112 section 7.1.2
 state!(trailer_name, {
-  consume!(token!());
+  consume!(token);
 
   match data[consumed..] {
     [char!(':'), ..] if consumed > 0 => {
@@ -896,11 +881,11 @@ state!(trailer_name, {
 
 state!(trailer_value, {
   // Ignore trailing OWS
-  consume!(char!('\t') | char!(' '));
+  consume!(ws);
   parser.position.update(|x| x + (consumed as u64));
   data = &data[consumed..];
 
-  consume!(token_value!());
+  consume!(token_value);
 
   if consumed == 0 {
     return fail!(UNEXPECTED_CHARACTER, "Invalid trailer field value character");
@@ -923,7 +908,7 @@ state!(trailer_value, {
 
 // #endregion trailers
 
-generate_enums!();
+generate_constants!();
 
 #[cfg(not(target_family = "wasm"))]
 generate_callbacks!();
@@ -939,7 +924,7 @@ pub struct Parser {
   pub owner: Cell<*mut c_void>,
 
   #[wasm_bindgen(skip)]
-  pub state: Cell<State>,
+  pub state: Cell<u8>,
 
   #[wasm_bindgen(skip)]
   pub position: Cell<u64>,
@@ -948,7 +933,7 @@ pub struct Parser {
   pub paused: Cell<bool>,
 
   #[wasm_bindgen(skip)]
-  pub error_code: Cell<Error>,
+  pub error_code: Cell<u8>,
 
   #[wasm_bindgen(skip)]
   pub error_description: Cell<*const c_uchar>,
@@ -1026,12 +1011,14 @@ pub struct Parser {
 #[wasm_bindgen]
 impl Parser {
   pub fn new() -> Parser {
+    initialize_states_table!();
+
     Parser {
       owner: Cell::new(ptr::null_mut()),
-      state: Cell::new(initial_state!()),
+      state: Cell::new(0),
       position: Cell::new(0),
       paused: Cell::new(false),
-      error_code: Cell::new(Error::NONE),
+      error_code: Cell::new(ERROR_NONE),
       error_description: Cell::new(ptr::null()),
       error_description_len: Cell::new(0),
       unconsumed: Cell::new(ptr::null()),
@@ -1063,14 +1050,14 @@ impl Parser {
   /// position counter.
   #[wasm_bindgen]
   pub fn reset(&self, keep_position: bool) {
-    self.state.set(initial_state!());
+    self.state.set(0);
     self.paused.set(false);
 
     if !keep_position {
       self.position.set(0);
     }
 
-    self.error_code.set(Error::NONE);
+    self.error_code.set(ERROR_NONE);
 
     if self.error_description_len.get() > 0 {
       unsafe {
@@ -1130,7 +1117,7 @@ impl Parser {
   ///
   /// The allow annotation is needed when building in release mode.
   #[allow(dead_code)]
-  fn move_to(&self, state: State, advance: isize) -> isize {
+  fn move_to(&self, state: u8, advance: isize) -> isize {
     let parser = self;
 
     #[cfg(debug_assertions)]
@@ -1149,7 +1136,7 @@ impl Parser {
   }
 
   /// Marks the parsing a failed, setting a error code and and error message.
-  fn fail(&self, code: Error, reason: String) -> isize {
+  fn fail(&self, code: u8, reason: String) -> isize {
     // Set the code
     self.error_code.set(code);
 
@@ -1158,14 +1145,14 @@ impl Parser {
 
     self.error_description.set(ptr);
     self.error_description_len.set(len);
-    self.state.set(State::ERROR);
+    self.state.set(STATE_ERROR);
 
     // Do not process any additional data
     0
   }
 
   /// Marks the parsing a failed, setting a error code and and error message.
-  fn fail_str(&self, code: Error, reason: &str) -> isize { self.fail(code, reason.into()) }
+  fn fail_str(&self, code: u8, reason: &str) -> isize { self.fail(code, reason.into()) }
 
   /// Pauses the parser. It will have to be resumed via `milo_resume`.
   #[wasm_bindgen]
@@ -1181,20 +1168,20 @@ impl Parser {
   pub fn finish(&self) {
     match self.state.get() {
       // If the parser is one of the initial states, simply jump to finish
-      State::START | State::REQUEST | State::RESPONSE | State::FINISH => {
-        self.state.set(State::FINISH);
+      STATE_START | STATE_REQUEST | STATE_RESPONSE | STATE_FINISH => {
+        self.state.set(STATE_FINISH);
       }
-      State::BODY_WITH_NO_LENGTH => {
+      STATE_BODY_WITH_NO_LENGTH => {
         // Notify that the message has been completed
         callback_no_return!(on_message_complete);
 
         // Set the state to be finished
-        self.state.set(State::FINISH);
+        self.state.set(STATE_FINISH);
       }
-      State::ERROR => (),
+      STATE_ERROR => (),
       // In another other state, this is an error
       _ => {
-        self.fail_str(Error::UNEXPECTED_EOF, "Unexpected end of data");
+        self.fail_str(ERROR_UNEXPECTED_EOF, "Unexpected end of data");
       }
     }
   }
@@ -1224,7 +1211,7 @@ impl Parser {
   ///
   /// Parses a slice of characters. It returns the number of consumed
   /// characters.
-  pub unsafe fn parse(&self, data: *const c_uchar, limit: usize) -> usize {
+  pub fn parse(&self, data: *const c_uchar, limit: usize) -> usize {
     // If the parser is paused, this is a no-op
     if self.paused.get() {
       return 0;
@@ -1254,7 +1241,7 @@ impl Parser {
   }
 
   #[wasm_bindgen(js_name = "parse")]
-  pub unsafe fn parse_wasm(&self, data: &[u8], limit: usize) -> Result<usize, JsValue> {
+  pub fn parse_wasm(&self, data: &[u8], limit: usize) -> Result<usize, JsValue> {
     #[cfg(debug_assertions)]
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
@@ -1269,7 +1256,7 @@ impl Parser {
 
     parse!();
 
-    if let Error::CALLBACK_ERROR = self.error_code.get() {
+    if let ERROR_CALLBACK_ERROR = self.error_code.get() {
       return Err(js_sys::Error::new(&self.error_description_string()).into());
     }
 
@@ -1277,7 +1264,7 @@ impl Parser {
   }
 
   #[wasm_bindgen(getter, js_name = "state")]
-  pub fn get_state(&self) -> State { self.state.get() }
+  pub fn get_state(&self) -> u8 { self.state.get() }
 
   #[wasm_bindgen(getter, js_name = "position")]
   pub fn get_position(&self) -> u64 { self.position.get() }
@@ -1286,7 +1273,7 @@ impl Parser {
   pub fn get_paused(&self) -> bool { self.paused.get() }
 
   #[wasm_bindgen(getter, js_name = "errorCode")]
-  pub fn get_error_code(&self) -> Error { self.error_code.get() }
+  pub fn get_error_code(&self) -> u8 { self.error_code.get() }
 
   #[wasm_bindgen(getter = id)]
   pub fn get_id(&self) -> u8 { self.id.get() }
@@ -1351,6 +1338,9 @@ impl Parser {
   #[wasm_bindgen(getter, js_name = "remainingChunkSize")]
   pub fn get_remaining_chunk_size(&self) -> u64 { self.remaining_chunk_size.get() }
 
+  #[wasm_bindgen(getter, js_name = "unconsumed")]
+  pub fn get_unconsumed_len(&self) -> usize { self.unconsumed_len.get() }
+
   #[wasm_bindgen(getter = skipBody)]
   pub fn get_skip_body(&self) -> bool { self.skip_body.get() }
 
@@ -1389,7 +1379,7 @@ pub extern "C" fn milo_create() -> *mut Parser { Box::into_raw(Box::new(Parser::
 ///
 /// Destroys a parser.
 #[no_mangle]
-pub unsafe extern "C" fn milo_destroy(ptr: *mut Parser) {
+pub extern "C" fn milo_destroy(ptr: *mut Parser) {
   if ptr.is_null() {
     return;
   }
@@ -1403,15 +1393,13 @@ pub unsafe extern "C" fn milo_destroy(ptr: *mut Parser) {
 ///
 /// Resets a parser to its initial state.
 #[no_mangle]
-pub unsafe extern "C" fn milo_reset(parser: *const Parser, keep_position: bool) {
-  unsafe { (*parser).reset(keep_position) }
-}
+pub extern "C" fn milo_reset(parser: *const Parser, keep_position: bool) { unsafe { (*parser).reset(keep_position) } }
 
 /// # Safety
 ///
 /// Parses a slice of characters. It returns the number of consumed characters.
 #[no_mangle]
-pub unsafe extern "C" fn milo_parse(parser: *const Parser, data: *const c_uchar, limit: usize) -> usize {
+pub extern "C" fn milo_parse(parser: *const Parser, data: *const c_uchar, limit: usize) -> usize {
   unsafe { (*parser).parse(data, limit) }
 }
 
@@ -1419,20 +1407,20 @@ pub unsafe extern "C" fn milo_parse(parser: *const Parser, data: *const c_uchar,
 ///
 /// Pauses the parser. It will have to be resumed via `milo_resume`.
 #[no_mangle]
-pub unsafe extern "C" fn milo_pause(parser: *const Parser) { unsafe { (*parser).pause() } }
+pub extern "C" fn milo_pause(parser: *const Parser) { unsafe { (*parser).pause() } }
 
 /// # Safety
 ///
 /// Resumes the parser.
 #[no_mangle]
-pub unsafe extern "C" fn milo_resume(parser: *const Parser) { unsafe { (*parser).resume() } }
+pub extern "C" fn milo_resume(parser: *const Parser) { unsafe { (*parser).resume() } }
 
 /// # Safety
 ///
 /// Marks the parser as finished. Any new data received via `milo_parse` will
 /// put the parser in the error state.
 #[no_mangle]
-pub unsafe extern "C" fn milo_finish(parser: *const Parser) { unsafe { (*parser).finish() } }
+pub extern "C" fn milo_finish(parser: *const Parser) { unsafe { (*parser).finish() } }
 
 /// # Safety
 ///
@@ -1440,7 +1428,7 @@ pub unsafe extern "C" fn milo_finish(parser: *const Parser) { unsafe { (*parser)
 ///
 /// The returned value must be freed using `free_string`.
 #[no_mangle]
-pub unsafe extern "C" fn milo_state_string(parser: *const Parser) -> *const c_uchar {
+pub extern "C" fn milo_state_string(parser: *const Parser) -> *const c_uchar {
   unsafe {
     let value = (*parser).state_string();
     CString::new(value).unwrap().into_raw() as *const c_uchar
@@ -1453,7 +1441,7 @@ pub unsafe extern "C" fn milo_state_string(parser: *const Parser) -> *const c_uc
 ///
 /// The returned value must be freed using `free_string`.
 #[no_mangle]
-pub unsafe extern "C" fn milo_error_code_string(parser: *const Parser) -> *const c_uchar {
+pub extern "C" fn milo_error_code_string(parser: *const Parser) -> *const c_uchar {
   unsafe {
     let value = (*parser).error_code_string();
     CString::new(value).unwrap().into_raw() as *const c_uchar
@@ -1466,7 +1454,7 @@ pub unsafe extern "C" fn milo_error_code_string(parser: *const Parser) -> *const
 ///
 /// The returned value must be freed using `free_string`.
 #[no_mangle]
-pub unsafe extern "C" fn milo_error_description_string(parser: *const Parser) -> *const c_uchar {
+pub extern "C" fn milo_error_description_string(parser: *const Parser) -> *const c_uchar {
   unsafe {
     let value = (*parser).error_description_string();
     CString::new(value).unwrap().into_raw() as *const c_uchar

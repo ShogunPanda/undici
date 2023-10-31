@@ -6,12 +6,4 @@ namespace = "milo"
 crates = ["milo"]
 
 [export]
-include = [
-  "Error",
-  "MessageType",
-  "Method",
-  "State",
-  "Callback",
-  "Parser",
-  "methods",
-]
+include = ["Callback", "Parser", "methods"]

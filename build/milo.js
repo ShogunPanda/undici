@@ -11,8 +11,11 @@ const DOCKERFILE = resolve(__dirname, './Dockerfile')
 const action = process.argv[2]
 
 let platform = process.env.WASM_PLATFORM
-if (!platform && process.argv[2]) {
-  platform = execSync('docker info -f "{{.OSType}}/{{.Architecture}}"').toString().trim()
+
+function ensurePlatform () {
+  if (!platform && process.argv[2]) {
+    platform = execSync('docker info -f "{{.OSType}}/{{.Architecture}}"').toString().trim()
+  }
 }
 
 function execute (cmd) {
@@ -33,7 +36,7 @@ function clean () {
 }
 
 function download () {
-  process.chdir('./deps/')
+  process.chdir(resolve(SOURCE_DIRECTORY, '..'))
 
   execute('rm -rf milo')
   execute('curl -sSL -o milo.zip https://github.com/ShogunPanda/milo/archive/refs/heads/main.zip')
@@ -64,12 +67,8 @@ function runInDocker () {
 }
 
 function build () {
-  process.chdir('parser')
-  execute('make -B wasm', { stdio: 'inherit' })
-}
-
-if (action === 'local') {
-  process.chdir('./deps/milo')
+  process.chdir(resolve(SOURCE_DIRECTORY, 'parser'))
+  execute('make -B wasm-release', { stdio: 'inherit' })
 }
 
 switch (action) {
@@ -80,9 +79,11 @@ switch (action) {
     download()
     break
   case 'image':
+    ensurePlatform()
     buildImage()
     break
   case 'docker':
+    ensurePlatform()
     runInDocker()
     break
   case 'local':

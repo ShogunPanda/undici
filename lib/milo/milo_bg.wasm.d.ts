@@ -50,6 +50,7 @@ export function parser_contentLength(a: number): number;
 export function parser_chunkSize(a: number): number;
 export function parser_remainingContentLength(a: number): number;
 export function parser_remainingChunkSize(a: number): number;
+export function parser_unconsumed(a: number): number;
 export function parser_get_skip_body(a: number): number;
 export function parser_set_skip_body(a: number, b: number): void;
 export function parser_setBeforeStateChange(a: number, b: number, c: number): void;

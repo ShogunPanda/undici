@@ -2,130 +2,6 @@
 /* eslint-disable */
 /**
 */
-export enum MessageType {
-  AUTODETECT = 0,
-  REQUEST = 1,
-  RESPONSE = 2,
-}
-/**
-*/
-export enum Connection {
-  KEEPALIVE = 0,
-  CLOSE = 1,
-  UPGRADE = 2,
-}
-/**
-*/
-export enum Method {
-  ACL = 0,
-  BASELINE_CONTROL = 1,
-  BIND = 2,
-  CHECKIN = 3,
-  CHECKOUT = 4,
-  CONNECT = 5,
-  COPY = 6,
-  DELETE = 7,
-  GET = 8,
-  HEAD = 9,
-  LABEL = 10,
-  LINK = 11,
-  LOCK = 12,
-  MERGE = 13,
-  MKACTIVITY = 14,
-  MKCALENDAR = 15,
-  MKCOL = 16,
-  MKREDIRECTREF = 17,
-  MKWORKSPACE = 18,
-  MOVE = 19,
-  OPTIONS = 20,
-  ORDERPATCH = 21,
-  PATCH = 22,
-  POST = 23,
-  PRI = 24,
-  PROPFIND = 25,
-  PROPPATCH = 26,
-  PUT = 27,
-  REBIND = 28,
-  REPORT = 29,
-  SEARCH = 30,
-  TRACE = 31,
-  UNBIND = 32,
-  UNCHECKOUT = 33,
-  UNLINK = 34,
-  UNLOCK = 35,
-  UPDATE = 36,
-  UPDATEREDIRECTREF = 37,
-  VERSION_CONTROL = 38,
-  DESCRIBE = 39,
-  GET_PARAMETER = 40,
-  PAUSE = 41,
-  PLAY = 42,
-  PLAY_NOTIFY = 43,
-  REDIRECT = 44,
-  SETUP = 45,
-  SET_PARAMETER = 46,
-  TEARDOWN = 47,
-  PURGE = 48,
-}
-/**
-*/
-export enum State {
-  START = 0,
-  FINISH = 1,
-  ERROR = 2,
-  MESSAGE = 3,
-  END = 4,
-  REQUEST = 5,
-  REQUEST_METHOD = 6,
-  REQUEST_URL = 7,
-  REQUEST_PROTOCOL = 8,
-  REQUEST_VERSION = 9,
-  RESPONSE = 10,
-  RESPONSE_VERSION = 11,
-  RESPONSE_STATUS = 12,
-  RESPONSE_REASON = 13,
-  HEADER_NAME = 14,
-  HEADER_TRANSFER_ENCODING = 15,
-  HEADER_CONTENT_LENGTH = 16,
-  HEADER_CONNECTION = 17,
-  HEADER_VALUE = 18,
-  HEADERS = 19,
-  BODY = 20,
-  TUNNEL = 21,
-  BODY_VIA_CONTENT_LENGTH = 22,
-  BODY_WITH_NO_LENGTH = 23,
-  CHUNK_LENGTH = 24,
-  CHUNK_EXTENSION_NAME = 25,
-  CHUNK_EXTENSION_VALUE = 26,
-  CHUNK_EXTENSION_QUOTED_VALUE = 27,
-  CHUNK_DATA = 28,
-  CHUNK_END = 29,
-  CRLF_AFTER_LAST_CHUNK = 30,
-  TRAILER_NAME = 31,
-  TRAILER_VALUE = 32,
-}
-/**
-*/
-export enum Error {
-  NONE = 0,
-  UNEXPECTED_DATA = 1,
-  UNEXPECTED_EOF = 2,
-  CALLBACK_ERROR = 3,
-  UNEXPECTED_CHARACTER = 4,
-  UNEXPECTED_CONTENT_LENGTH = 5,
-  UNEXPECTED_TRANSFER_ENCODING = 6,
-  UNEXPECTED_CONTENT = 7,
-  UNTRAILERS = 8,
-  INVALID_VERSION = 9,
-  INVALID_STATUS = 10,
-  INVALID_CONTENT_LENGTH = 11,
-  INVALID_TRANSFER_ENCODING = 12,
-  INVALID_CHUNK_SIZE = 13,
-  MISSING_CONNECTION_UPGRADE = 14,
-  UNSUPPORTED_HTTP_VERSION = 15,
-}
-/**
-*/
 export class Parser {
   free(): void;
 /**
@@ -357,8 +233,114 @@ export class Parser {
   readonly status: number;
 /**
 */
+  readonly unconsumed: number;
+/**
+*/
   readonly versionMajor: number;
 /**
 */
   readonly versionMinor: number;
 }
+export declare const AUTODETECT: number = 0;
+export declare const REQUEST: number = 1;
+export declare const RESPONSE: number = 2;
+export declare const CONNECTION_KEEPALIVE: number = 0;
+export declare const CONNECTION_CLOSE: number = 1;
+export declare const CONNECTION_UPGRADE: number = 2;
+export declare const METHOD_ACL: number = 0;
+export declare const METHOD_BASELINE_CONTROL: number = 1;
+export declare const METHOD_BIND: number = 2;
+export declare const METHOD_CHECKIN: number = 3;
+export declare const METHOD_CHECKOUT: number = 4;
+export declare const METHOD_CONNECT: number = 5;
+export declare const METHOD_COPY: number = 6;
+export declare const METHOD_DELETE: number = 7;
+export declare const METHOD_GET: number = 8;
+export declare const METHOD_HEAD: number = 9;
+export declare const METHOD_LABEL: number = 10;
+export declare const METHOD_LINK: number = 11;
+export declare const METHOD_LOCK: number = 12;
+export declare const METHOD_MERGE: number = 13;
+export declare const METHOD_MKACTIVITY: number = 14;
+export declare const METHOD_MKCALENDAR: number = 15;
+export declare const METHOD_MKCOL: number = 16;
+export declare const METHOD_MKREDIRECTREF: number = 17;
+export declare const METHOD_MKWORKSPACE: number = 18;
+export declare const METHOD_MOVE: number = 19;
+export declare const METHOD_OPTIONS: number = 20;
+export declare const METHOD_ORDERPATCH: number = 21;
+export declare const METHOD_PATCH: number = 22;
+export declare const METHOD_POST: number = 23;
+export declare const METHOD_PRI: number = 24;
+export declare const METHOD_PROPFIND: number = 25;
+export declare const METHOD_PROPPATCH: number = 26;
+export declare const METHOD_PUT: number = 27;
+export declare const METHOD_REBIND: number = 28;
+export declare const METHOD_REPORT: number = 29;
+export declare const METHOD_SEARCH: number = 30;
+export declare const METHOD_TRACE: number = 31;
+export declare const METHOD_UNBIND: number = 32;
+export declare const METHOD_UNCHECKOUT: number = 33;
+export declare const METHOD_UNLINK: number = 34;
+export declare const METHOD_UNLOCK: number = 35;
+export declare const METHOD_UPDATE: number = 36;
+export declare const METHOD_UPDATEREDIRECTREF: number = 37;
+export declare const METHOD_VERSION_CONTROL: number = 38;
+export declare const METHOD_DESCRIBE: number = 39;
+export declare const METHOD_GET_PARAMETER: number = 40;
+export declare const METHOD_PAUSE: number = 41;
+export declare const METHOD_PLAY: number = 42;
+export declare const METHOD_PLAY_NOTIFY: number = 43;
+export declare const METHOD_REDIRECT: number = 44;
+export declare const METHOD_SETUP: number = 45;
+export declare const METHOD_SET_PARAMETER: number = 46;
+export declare const METHOD_TEARDOWN: number = 47;
+export declare const METHOD_PURGE: number = 48;
+export declare const ERROR_NONE: number = 0;
+export declare const ERROR_UNEXPECTED_DATA: number = 1;
+export declare const ERROR_UNEXPECTED_EOF: number = 2;
+export declare const ERROR_CALLBACK_ERROR: number = 3;
+export declare const ERROR_UNEXPECTED_CHARACTER: number = 4;
+export declare const ERROR_UNEXPECTED_CONTENT_LENGTH: number = 5;
+export declare const ERROR_UNEXPECTED_TRANSFER_ENCODING: number = 6;
+export declare const ERROR_UNEXPECTED_CONTENT: number = 7;
+export declare const ERROR_UNTRAILERS: number = 8;
+export declare const ERROR_INVALID_VERSION: number = 9;
+export declare const ERROR_INVALID_STATUS: number = 10;
+export declare const ERROR_INVALID_CONTENT_LENGTH: number = 11;
+export declare const ERROR_INVALID_TRANSFER_ENCODING: number = 12;
+export declare const ERROR_INVALID_CHUNK_SIZE: number = 13;
+export declare const ERROR_MISSING_CONNECTION_UPGRADE: number = 14;
+export declare const ERROR_UNSUPPORTED_HTTP_VERSION: number = 15;
+export declare const STATE_START: number = 0;
+export declare const STATE_FINISH: number = 1;
+export declare const STATE_ERROR: number = 2;
+export declare const STATE_MESSAGE: number = 3;
+export declare const STATE_REQUEST: number = 4;
+export declare const STATE_REQUEST_METHOD: number = 5;
+export declare const STATE_REQUEST_URL: number = 6;
+export declare const STATE_REQUEST_PROTOCOL: number = 7;
+export declare const STATE_REQUEST_VERSION: number = 8;
+export declare const STATE_RESPONSE: number = 9;
+export declare const STATE_RESPONSE_VERSION: number = 10;
+export declare const STATE_RESPONSE_STATUS: number = 11;
+export declare const STATE_RESPONSE_REASON: number = 12;
+export declare const STATE_HEADER_NAME: number = 13;
+export declare const STATE_HEADER_TRANSFER_ENCODING: number = 14;
+export declare const STATE_HEADER_CONTENT_LENGTH: number = 15;
+export declare const STATE_HEADER_CONNECTION: number = 16;
+export declare const STATE_HEADER_VALUE: number = 17;
+export declare const STATE_HEADERS: number = 18;
+export declare const STATE_BODY: number = 19;
+export declare const STATE_TUNNEL: number = 20;
+export declare const STATE_BODY_VIA_CONTENT_LENGTH: number = 21;
+export declare const STATE_BODY_WITH_NO_LENGTH: number = 22;
+export declare const STATE_CHUNK_LENGTH: number = 23;
+export declare const STATE_CHUNK_EXTENSION_NAME: number = 24;
+export declare const STATE_CHUNK_EXTENSION_VALUE: number = 25;
+export declare const STATE_CHUNK_EXTENSION_QUOTED_VALUE: number = 26;
+export declare const STATE_CHUNK_DATA: number = 27;
+export declare const STATE_CHUNK_END: number = 28;
+export declare const STATE_CRLF_AFTER_LAST_CHUNK: number = 29;
+export declare const STATE_TRAILER_NAME: number = 30;
+export declare const STATE_TRAILER_VALUE: number = 31;

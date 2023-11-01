@@ -82,9 +82,7 @@ mixin!(store_parsed_http_version, {
   }
 });
 
-// #region general
-// Depending on the mode flag, choose the initial state
-state!(start, {
+mixin!(start, {
   match parser.mode.get() {
     AUTODETECT => move_to!(message, 0),
     REQUEST => {
@@ -102,6 +100,10 @@ state!(start, {
     _ => fail!(UNEXPECTED_CHARACTER, "Invalid mode"),
   }
 });
+
+// #region general
+// Depending on the mode flag, choose the initial state
+state!(start, { use_mixin!(start) });
 
 state!(finish, { 0 });
 
@@ -623,7 +625,8 @@ fn complete_message(parser: &Parser, advance: isize) -> isize {
   if must_close {
     move_to!(finish, advance)
   } else {
-    move_to!(start, advance)
+    parser.position.update(|x| x + (advance as u64));
+    use_mixin!(start)
   }
 }
 
@@ -1168,7 +1171,7 @@ impl Parser {
   pub fn finish(&self) {
     match self.state.get() {
       // If the parser is one of the initial states, simply jump to finish
-      STATE_START | STATE_REQUEST | STATE_RESPONSE | STATE_FINISH => {
+      STATE_START | STATE_MESSAGE | STATE_REQUEST | STATE_RESPONSE | STATE_FINISH => {
         self.state.set(STATE_FINISH);
       }
       STATE_BODY_WITH_NO_LENGTH => {

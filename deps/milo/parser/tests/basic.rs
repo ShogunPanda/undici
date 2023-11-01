@@ -3,7 +3,10 @@ mod test {
   use std::ffi::c_uchar;
 
   use milo::test_utils::{create_parser, http};
-  use milo::{Parser, REQUEST, RESPONSE, STATE_ERROR, STATE_FINISH, STATE_HEADER_NAME, STATE_START};
+  use milo::{
+    Parser, REQUEST, RESPONSE, STATE_ERROR, STATE_FINISH, STATE_HEADER_NAME, STATE_MESSAGE, STATE_REQUEST,
+    STATE_RESPONSE, STATE_START,
+  };
 
   #[test]
   fn basic_disable_autodetect() {
@@ -253,7 +256,7 @@ mod test {
     );
 
     parser.parse(keep_alive_connection.as_ptr(), keep_alive_connection.len());
-    assert!(matches!(parser.state.get(), STATE_START));
+    assert!(matches!(parser.state.get(), STATE_MESSAGE));
   }
 
   #[test]
@@ -303,6 +306,54 @@ mod test {
   }
 
   #[test]
+  fn restart() {
+    let parser = create_parser();
+    parser.mode.set(RESPONSE);
+
+    let response = http(
+      r#"
+        HTTP/1.1 200 OK\r\n
+        Header1: Value1\r\n
+        Header2: Value2\r\n
+        Content-Length: 3\r\n
+        \r\n
+        abc\r\n\r\n
+        HTTP/1.1 200 OK\r\n
+        Header1: Value1\r\n
+        Header2: Value2\r\n
+        Content-Length: 3\r\n
+        \r\n
+        abc\r\n
+        HTTP/1.1 200 OK\r\n
+        Header1: Value1\r\n
+        Header2: Value2\r\n
+        Content-Length: 3\r\n
+        \r\n
+        abc\r\n\r\n
+      "#,
+    );
+
+    let request = http(
+      r#"
+        PUT /url HTTP/1.1\r\n
+        Content-Length: 3\r\n
+        Connection: keep-alive\r\n
+        \r\n
+        abc
+      "#,
+    );
+
+    parser.parse(response.as_ptr(), response.len());
+    assert!(matches!(parser.state.get(), STATE_RESPONSE));
+
+    parser.mode.set(REQUEST);
+    parser.reset(false);
+
+    parser.parse(request.as_ptr(), request.len());
+    assert!(matches!(parser.state.get(), STATE_REQUEST));
+  }
+
+  #[test]
   fn finish() {
     let parser = create_parser();
 
@@ -339,7 +390,7 @@ mod test {
     );
 
     parser.parse(keep_alive_connection.as_ptr(), keep_alive_connection.len());
-    assert!(matches!(parser.state.get(), STATE_START));
+    assert!(matches!(parser.state.get(), STATE_MESSAGE));
     parser.finish();
     assert!(matches!(parser.state.get(), STATE_FINISH));
 

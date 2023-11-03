@@ -1203,7 +1203,7 @@ impl Parser {
 
   /// Returns the current parser's error state as string.
   #[wasm_bindgen(getter, js_name = "errorCodeString")]
-  pub fn error_code_string(&self) -> String { Errors::try_from(self.state.get()).unwrap().into() }
+  pub fn error_code_string(&self) -> String { Errors::try_from(self.error_code.get()).unwrap().into() }
 
   /// Returns the current parser's error descrition.
   #[wasm_bindgen(getter, js_name = "errorDescription")]

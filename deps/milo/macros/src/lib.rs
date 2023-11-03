@@ -12,6 +12,7 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use regex::{Captures, Regex};
 use semver::Version;
+use serde::Serialize;
 use syn::{parse_macro_input, parse_str, Arm, Expr, Ident, ItemConst, LitByte, LitChar, LitInt, LitStr, Stmt};
 use toml::Table;
 
@@ -21,6 +22,12 @@ static mut ERRORS: OnceLock<IndexSet<String>> = OnceLock::new();
 static mut CALLBACKS: OnceLock<IndexSet<String>> = OnceLock::new();
 static mut STATES: OnceLock<IndexSet<String>> = OnceLock::new();
 static mut MIXINS: OnceLock<HashMap<String, Vec<String>>> = OnceLock::new();
+
+#[derive(Serialize)]
+struct BuildInfo {
+  version: IndexMap<String, usize>,
+  constants: IndexMap<String, usize>,
+}
 
 /// Takes a state name and returns its state variant, which is its uppercased
 /// version.
@@ -83,15 +90,20 @@ fn save_constants() {
   }
 
   // Prepare the data to save
-  let mut data: IndexMap<String, IndexMap<String, usize>> = IndexMap::new();
-  data.insert("version".into(), version);
-  data.insert("constants".into(), consts);
+  let data = BuildInfo {
+    version,
+    constants: consts,
+  };
 
   // Write information in the file
   let mut json_path = Path::new(file!()).parent().unwrap().to_path_buf();
   json_path.push("../../parser/target/buildinfo.json");
 
-  let file = OpenOptions::new().write(true).create(true).open(json_path.as_path());
+  let file = OpenOptions::new()
+    .write(true)
+    .create(true)
+    .truncate(true)
+    .open(json_path.as_path());
 
   let writer = BufWriter::new(file.unwrap());
   serde_json::to_writer_pretty(writer, &data).unwrap();
@@ -593,12 +605,28 @@ fn callback_internal(input: TokenStream, return_on_error: bool, use_self: bool) 
   let (invocation, invocation_wasm) = if let Some(length) = definition.expr {
     (
       quote! {
-        (#parser.callbacks.#callback.get())(#parser, data.as_ptr(), (#length) as usize)
+        {
+          #[cfg(not(feature = "no-copy"))]
+          {
+            (#parser.callbacks.#callback.get())(#parser, data.as_ptr(), (#length) as usize)
+          }
+
+          #[cfg(feature = "no-copy")]
+          {
+            (#parser.callbacks.#callback.get())(#parser, #parser.position.get() as usize, (#length) as usize)
+          }
+        }
       },
       quote! {
         {
-          // Handle when the return value is not an integer
+          // TODO@PI: Handle when the return value is not an integer
+
+          #[cfg(not(feature = "no-copy"))]
           let ret = #parser.callbacks.#callback.call2(&JsValue::NULL, unsafe { &Uint8Array::view(data) }, &JsValue::from(#length));
+
+          #[cfg(feature = "no-copy")]
+          let ret = #parser.callbacks.#callback.call2(&JsValue::NULL, &JsValue::from(#parser.position.get() as usize), &JsValue::from(#length));
+
           #validate_wasm
         }
       },
@@ -606,7 +634,17 @@ fn callback_internal(input: TokenStream, return_on_error: bool, use_self: bool) 
   } else {
     (
       quote! {
-        (#parser.callbacks.#callback.get())(#parser, ptr::null(), 0)
+        {
+          #[cfg(not(feature = "no-copy"))]
+          {
+            (#parser.callbacks.#callback.get())(#parser, ptr::null(), 0)
+          }
+
+          #[cfg(feature = "no-copy")]
+          {
+            (#parser.callbacks.#callback.get())(#parser, 0, 0)
+          }
+        }
       },
       quote! {
         {
@@ -762,9 +800,16 @@ pub fn generate_constants(_input: TokenStream) -> TokenStream {
     #[cfg(not(target_family = "wasm"))]
     #[no_mangle]
 
+    #[cfg(not(feature = "no-copy"))]
     pub type Callback = fn (&Parser, *const c_uchar, usize) -> isize;
 
+    #[cfg(feature = "no-copy")]
+    pub type Callback = fn (&Parser, usize, usize) -> isize;
+
     pub const SUSPEND: isize = isize::MIN;
+
+    pub const DEBUG: bool = cfg!(debug_assertions);
+    pub const NO_COPY: bool = cfg!(feature = "no-copy");
 
     pub const AUTODETECT: u8 = 0;
     pub const REQUEST: u8 = 1;
@@ -791,6 +836,232 @@ pub fn generate_constants(_input: TokenStream) -> TokenStream {
   })
 }
 
+/// Generates all parser enums.
+#[proc_macro]
+pub fn generate_enums(_input: TokenStream) -> TokenStream {
+  let methods_ref = METHODS.get().unwrap();
+  let states_ref = unsafe { STATES.get().unwrap() };
+  let errors_ref = unsafe { ERRORS.get().unwrap() };
+
+  let methods: Vec<_> = methods_ref
+    .iter()
+    .map(|x| format_ident!("{}", x.replace('-', "_")))
+    .collect();
+
+  let states: Vec<_> = states_ref.iter().map(|x| format_ident!("{}", x)).collect();
+
+  let errors: Vec<_> = errors_ref.iter().map(|x| format_ident!("{}", x)).collect();
+
+  let methods_from: Vec<_> = methods_ref
+    .iter()
+    .enumerate()
+    .map(|(x, i)| parse_str::<Arm>(&format!("{} => Ok(Methods::{})", x, i.replace('-', "_"))).unwrap())
+    .collect();
+
+  let states_from: Vec<_> = states_ref
+    .iter()
+    .enumerate()
+    .map(|(x, i)| parse_str::<Arm>(&format!("{} => Ok(States::{})", x, i)).unwrap())
+    .collect();
+
+  let errors_from: Vec<_> = errors_ref
+    .iter()
+    .enumerate()
+    .map(|(x, i)| parse_str::<Arm>(&format!("{} => Ok(Errors::{})", x, i)).unwrap())
+    .collect();
+
+  let methods_into: Vec<_> = methods_ref
+    .iter()
+    .map(|x| parse_str::<Arm>(&format!("Methods::{} => String::from(\"{}\")", x.replace('-', "_"), x)).unwrap())
+    .collect();
+
+  let states_into: Vec<_> = states_ref
+    .iter()
+    .map(|x| parse_str::<Arm>(&format!("States::{} => String::from(\"{}\")", x, x)).unwrap())
+    .collect();
+
+  let errors_into: Vec<_> = errors_ref
+    .iter()
+    .map(|x| parse_str::<Arm>(&format!("Errors::{} => String::from(\"{}\")", x, x)).unwrap())
+    .collect();
+
+  TokenStream::from(quote! {
+    // MessageType and Connection reflects the constants in generate_constants
+    // to allow easier interoperability, especially in WASM.
+    #[wasm_bindgen]
+    #[repr(u8)]
+    #[derive(Copy, Clone, Debug)]
+    pub enum MessageTypes {
+      AUTODETECT,
+      REQUEST,
+      RESPONSE,
+    }
+
+    #[wasm_bindgen]
+    #[repr(u8)]
+    #[derive(Copy, Clone, Debug)]
+    pub enum Connections {
+      KEEPALIVE,
+      CLOSE,
+      UPGRADE,
+    }
+
+    #[wasm_bindgen]
+    #[repr(u8)]
+    #[derive(Copy, Clone, Debug)]
+    pub enum Methods {
+      #(#methods),*
+    }
+
+    #[wasm_bindgen]
+    #[repr(u8)]
+    #[derive(Copy, Clone, Debug)]
+    pub enum States {
+      #(#states),*
+    }
+
+    #[wasm_bindgen]
+    #[repr(u8)]
+    #[derive(Copy, Clone, Debug)]
+    pub enum Errors {
+      #(#errors),*
+    }
+
+    impl TryFrom<u8> for MessageTypes {
+      type Error = ();
+
+      fn try_from(value: u8) -> Result<Self, ()> {
+        match value {
+          0 => Ok(MessageTypes::AUTODETECT),
+          1 => Ok(MessageTypes::REQUEST),
+          2 => Ok(MessageTypes::RESPONSE),
+          _ => Err(())
+        }
+      }
+    }
+
+    impl TryFrom<u8> for Connections {
+      type Error = ();
+
+      fn try_from(value: u8) -> Result<Self, ()> {
+        match value {
+          0 => Ok(Connections::KEEPALIVE),
+          1 => Ok(Connections::CLOSE),
+          2 => Ok(Connections::UPGRADE),
+          _ => Err(())
+        }
+      }
+    }
+
+    impl TryFrom<u8> for Methods {
+      type Error = ();
+
+      fn try_from(value: u8) -> Result<Self, ()> {
+        match value {
+          #(#methods_from),*,
+          _ => Err(())
+        }
+      }
+    }
+
+    impl TryFrom<u8> for States {
+      type Error = ();
+
+      fn try_from(value: u8) -> Result<Self, ()> {
+        match value {
+          #(#states_from),*,
+          _ => Err(())
+        }
+      }
+    }
+
+    impl TryFrom<u8> for Errors {
+      type Error = ();
+
+      fn try_from(value: u8) -> Result<Self, ()> {
+        match value {
+          #(#errors_from),*,
+          _ => Err(())
+        }
+      }
+    }
+
+    impl Into<String> for MessageTypes {
+      fn into(self) -> String {
+        match self {
+          MessageTypes::AUTODETECT => String::from("AUTODETECT"),
+          MessageTypes::REQUEST => String::from("REQUEST"),
+          MessageTypes::RESPONSE => String::from("RESPONSE")
+        }
+      }
+    }
+
+    impl Into<String> for Connections {
+      fn into(self) -> String {
+        match self {
+          Connections::KEEPALIVE => String::from("KEEPALIVE"),
+          Connections::CLOSE => String::from("CLOSE"),
+          Connections::UPGRADE => String::from("UPGRADE")
+        }
+      }
+    }
+
+    impl Into<String> for Methods {
+      fn into(self) -> String {
+        match self {
+          #(#methods_into),*
+        }
+      }
+    }
+
+    impl Into<String> for States {
+      fn into(self) -> String {
+        match self {
+          #(#states_into),*
+        }
+      }
+    }
+
+    impl Into<String> for Errors {
+      fn into(self) -> String {
+        match self {
+          #(#errors_into),*
+        }
+      }
+    }
+
+    impl MessageTypes {
+      pub fn as_string(self) -> String {
+        self.into()
+      }
+    }
+
+    impl Connections {
+      pub fn as_string(self) -> String {
+        self.into()
+      }
+    }
+
+    impl Methods {
+      pub fn as_string(self) -> String {
+        self.into()
+      }
+    }
+
+    impl States {
+      pub fn as_string(self) -> String {
+        self.into()
+      }
+    }
+
+    impl Errors {
+      pub fn as_string(self) -> String {
+        self.into()
+      }
+    }
+  })
+}
+
 #[proc_macro]
 pub fn generate_callbacks(_input: TokenStream) -> TokenStream {
   let callbacks: Vec<_> = unsafe {
@@ -803,7 +1074,13 @@ pub fn generate_callbacks(_input: TokenStream) -> TokenStream {
   };
 
   TokenStream::from(quote! {
+    #[cfg(not(feature = "no-copy"))]
     fn noop_internal(_parser: &Parser, _data: *const c_uchar, _len: usize) -> isize {
+      0
+    }
+
+    #[cfg(feature = "no-copy")]
+    fn noop_internal(_parser: &Parser, _data: usize, _len: usize) -> isize {
       0
     }
 
@@ -907,41 +1184,53 @@ pub fn parse(_input: TokenStream) -> TokenStream {
   TokenStream::from(quote! {
     // Set the data to analyze, prepending unconsumed data from previous iteration
     // if needed
+
+    let mut consumed = 0;
+    let mut current: &[u8];
+
+    #[cfg(not(feature = "no-copy"))]
+    let mut limit = limit;
+
+    #[cfg(not(feature = "no-copy"))]
+    let aggregate: Vec<c_uchar>;
+
+    #[cfg(not(feature = "no-copy"))]
     let unconsumed_len = self.unconsumed_len.get();
-    let mut current = if unconsumed_len > 0 {
-      unsafe {
-        limit += unconsumed_len;
-        let unconsumed = from_raw_parts(self.unconsumed.get(), unconsumed_len);
 
-        aggregate = [unconsumed, data].concat();
-        &aggregate[..]
-      }
-    } else {
-      data
-    };
+    #[cfg(not(feature = "no-copy"))]
+    {
+      current = if unconsumed_len > 0 {
+        unsafe {
+          limit += unconsumed_len;
+          let unconsumed = from_raw_parts(self.unconsumed.get(), unconsumed_len);
 
-    // Notify initial state change when starting
-    #[cfg(debug_assertions)]
-    if self.position.get() == 0 {
-      callback_no_return!(before_state_change);
+          aggregate = [unconsumed, data].concat();
+          &aggregate[..]
+        }
+      } else {
+        data
+      };
     }
+
+    #[cfg(feature = "no-copy")]
+    let mut current = data;
 
     // Limit the data that is currently analyzed
     current = &current[..limit];
 
-    #[cfg(all(debug_assertions, feature = "milo_debug_loop"))]
+    #[cfg(all(debug_assertions, feature = "debug"))]
     let mut last = Instant::now();
 
-    #[cfg(all(debug_assertions, feature = "milo_debug_loop"))]
+    #[cfg(all(debug_assertions, feature = "debug"))]
     let start = Instant::now();
 
-    #[cfg(all(debug_assertions, feature = "milo_debug_loop"))]
+    #[cfg(all(debug_assertions, feature = "debug"))]
     let mut previous_state = self.state.get();
 
     let handlers = states_handlers.get().unwrap();
 
     // Since states might advance position manually, the parser have to explicitly track it
-    let mut initial_position = self.position.get();
+    let mut initial_position = self.position.update(|_| 0);
 
     // Until there is data or there is a request to continue
     while !current.is_empty() || self.continue_without_data.get() {
@@ -962,18 +1251,7 @@ pub fn parse(_input: TokenStream) -> TokenStream {
       if new_state == STATE_FINISH {
         callback_no_return!(on_finish);
       } else if new_state == STATE_ERROR {
-        #[cfg(not(target_family = "wasm"))]
-        (self.callbacks.on_error.get())(self, self.error_description.get(), self.error_description_len.get());
-
-        #[cfg(target_family = "wasm")]
-        {
-          self.callbacks.on_error.call2(
-            &JsValue::NULL,
-            unsafe { &Uint8Array::view(from_raw_parts(self.error_description.get(), self.error_description_len.get())) },
-            &JsValue::from(self.error_description_len.get())
-          ).unwrap_or(JsValue::NULL);
-        }
-
+        callback_no_return!(on_error);
         break;
       } else if result == SUSPEND {
         // If the state suspended the parser, then bail out earlier
@@ -991,7 +1269,7 @@ pub fn parse(_input: TokenStream) -> TokenStream {
       initial_position = new_position;
 
       // Show the duration of the operation if asked to
-      #[cfg(all(debug_assertions, feature = "milo_debug_loop"))]
+      #[cfg(all(debug_assertions, feature = "debug"))]
       {
         let duration = Instant::now().duration_since(last).as_nanos();
 
@@ -1012,6 +1290,9 @@ pub fn parse(_input: TokenStream) -> TokenStream {
       }
     }
 
+    self.parsed.update(|x| x + (consumed as u64));
+
+    #[cfg(not(feature = "no-copy"))]
     unsafe {
       // Drop any previous retained data
       if unconsumed_len > 0 {
@@ -1031,58 +1312,16 @@ pub fn parse(_input: TokenStream) -> TokenStream {
       }
     }
 
-    #[cfg(all(debug_assertions, feature = "milo_debug_loop"))]
-      {
-        let duration = Instant::now().duration_since(start).as_nanos();
+    #[cfg(all(debug_assertions, feature = "debug"))]
+    {
+      let duration = Instant::now().duration_since(start).as_nanos();
 
-        if duration > 0 {
-          println!(
-            "[milo::debug] parse ({:?}, {}) completed in {} ns", self.state.get(), self.unconsumed_len.get(), duration
-          );
-        }
+      if duration > 0 {
+        println!(
+          "[milo::debug] parse ({:?}, consumed {} of {}) completed in {} ns", self.state.get(), consumed, limit, duration
+        );
       }
-  })
-}
-
-/// Translates a state enum variant to a string.
-#[proc_macro]
-pub fn c_match_state_string(_input: TokenStream) -> TokenStream {
-  let states_to_string_arms: Vec<_> = unsafe {
-    STATES
-      .get()
-      .unwrap()
-      .iter()
-      .enumerate()
-      .map(|(x, i)| parse_str::<Arm>(&format!("{} => \"{}\"", x, i)).unwrap())
-      .collect()
-  };
-
-  TokenStream::from(quote! {
-    match self.state.get() {
-      #(#states_to_string_arms),*,
-      _ => "UNKNOWN_STATE"
-    }.into()
-  })
-}
-
-/// Translates a error code enum variant to a string.
-#[proc_macro]
-pub fn c_match_error_code_string(_input: TokenStream) -> TokenStream {
-  let error_to_string_arms: Vec<_> = unsafe {
-    ERRORS
-      .get()
-      .unwrap()
-      .iter()
-      .enumerate()
-      .map(|(x, i)| parse_str::<Arm>(&format!("{} => \"{}\"", x, i)).unwrap())
-      .collect()
-  };
-
-  TokenStream::from(quote! {
-    match &self.error_code.get() {
-      #(#error_to_string_arms),*,
-      _ => "UNKNOWN_ERROR"
-    }.into()
+    }
   })
 }
 // #endregion generators

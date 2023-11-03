@@ -1,11 +1,11 @@
 import { readFile, writeFile } from 'node:fs/promises'
 
 const buildInfoPath = new URL('../target/buildinfo.json', import.meta.url)
-const profile = process.argv[2] === 'debug' ? 'debug' : 'release'
+const profile = process.argv[2]
 const javascriptPath = new URL(`../dist/wasm/${profile}/milo.js`, import.meta.url)
 const typescriptPath = new URL(`../dist/wasm/${profile}/milo.d.ts`, import.meta.url)
 
-const { constants } = JSON.parse(await readFile(buildInfoPath, 'utf-8'))
+const { constants, flags } = JSON.parse(await readFile(buildInfoPath, 'utf-8'))
 
 // Generate constants for JavaScript
 let js = await readFile(javascriptPath, 'utf-8')

@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod test {
-  use milo::test_utils::{create_parser, http};
+  use milo::test_utils::{create_parser, http, parse};
   use milo::STATE_TUNNEL;
 
   #[test]
@@ -23,11 +23,11 @@ mod test {
       "#,
     );
 
-    let consumed1 = parser.parse(message1.as_ptr(), message1.len());
+    let consumed1 = parse(&parser, &message1);
     assert!(consumed1 == 70);
     assert!(matches!(parser.state.get(), STATE_TUNNEL));
 
-    let consumed2 = parser.parse(message2.as_ptr(), message2.len());
+    let consumed2 = parse(&parser, &message2);
     assert!(consumed2 == 0);
     assert!(matches!(parser.state.get(), STATE_TUNNEL));
   }
@@ -41,7 +41,7 @@ mod test {
         GET / HTTP/1.1\r\n
         Host: example.com\r\n
         Connection: upgrade\r\n
-        Upgrade: websocket
+        Upgrade: websocket\r\n
         Content-Length: 3\r\n
         \r\n
         abc\r\n\r\n
@@ -54,11 +54,11 @@ mod test {
       "#,
     );
 
-    let consumed1 = parser.parse(message1.as_ptr(), message1.len());
-    assert!(consumed1 == 95);
+    let consumed1 = parse(&parser, &message1);
+    assert!(consumed1 == 97);
     assert!(matches!(parser.state.get(), STATE_TUNNEL));
 
-    let consumed2 = parser.parse(message2.as_ptr(), message2.len());
+    let consumed2 = parse(&parser, &message2);
     assert!(consumed2 == 0);
     assert!(matches!(parser.state.get(), STATE_TUNNEL));
   }

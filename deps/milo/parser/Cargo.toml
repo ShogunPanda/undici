@@ -8,16 +8,16 @@ publish = false
 crate_type = ["cdylib", "staticlib", "lib"]
 
 [dependencies]
+console_error_panic_hook = { version = "0.1.7", optional = true }
+js-sys = "0.3.64"
 milo-parser-macros = { path = "../macros" }
 regex = "1.9.1"
 wasm-bindgen = "0.2.84"
-console_error_panic_hook = { version = "0.1.7", optional = true }
-js-sys = "0.3.64"
 
 [features]
 default = ["console_error_panic_hook"]
-milo_debug_loop = []
-milo_debug_test = []
+debug = []
+no-copy = []
 
 [profile.bench]
 opt-level = 3

@@ -1,8 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 
 const buildInfoPath = new URL('../target/buildinfo.json', import.meta.url)
-const profile = process.argv[2] === 'debug' ? 'debug' : 'release'
-const headerPath = new URL(`../dist/${profile}/milo.h`, import.meta.url)
+const headerPath = new URL(`../dist/${process.argv[2]}/milo.h`, import.meta.url)
 const toReplace = `namespace milo {\n\n`
 const matcher = new RegExp(`^(?:${toReplace})$`, 'm')
 

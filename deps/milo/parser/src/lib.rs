@@ -9,7 +9,7 @@ use std::ptr;
 use std::slice::from_raw_parts;
 use std::str;
 use std::sync::OnceLock;
-#[cfg(all(debug_assertions, feature = "milo_debug_loop"))]
+#[cfg(all(debug_assertions, feature = "debug"))]
 use std::time::Instant;
 
 #[allow(unused_imports)]
@@ -82,7 +82,9 @@ mixin!(store_parsed_http_version, {
   }
 });
 
-mixin!(start, {
+// #region general
+// Depending on the mode flag, choose the initial state
+state!(start, {
   match parser.mode.get() {
     AUTODETECT => move_to!(message, 0),
     REQUEST => {
@@ -100,10 +102,6 @@ mixin!(start, {
     _ => fail!(UNEXPECTED_CHARACTER, "Invalid mode"),
   }
 });
-
-// #region general
-// Depending on the mode flag, choose the initial state
-state!(start, { use_mixin!(start) });
 
 state!(finish, { 0 });
 
@@ -625,8 +623,7 @@ fn complete_message(parser: &Parser, advance: isize) -> isize {
   if must_close {
     move_to!(finish, advance)
   } else {
-    parser.position.update(|x| x + (advance as u64));
-    use_mixin!(start)
+    move_to!(start, advance)
   }
 }
 
@@ -913,6 +910,8 @@ state!(trailer_value, {
 
 generate_constants!();
 
+generate_enums!();
+
 #[cfg(not(target_family = "wasm"))]
 generate_callbacks!();
 
@@ -933,6 +932,9 @@ pub struct Parser {
   pub position: Cell<u64>,
 
   #[wasm_bindgen(skip)]
+  pub parsed: Cell<u64>,
+
+  #[wasm_bindgen(skip)]
   pub paused: Cell<bool>,
 
   #[wasm_bindgen(skip)]
@@ -944,9 +946,11 @@ pub struct Parser {
   #[wasm_bindgen(skip)]
   pub error_description_len: Cell<usize>,
 
+  #[cfg(not(feature = "no-copy"))]
   #[wasm_bindgen(skip)]
   pub unconsumed: Cell<*const c_uchar>,
 
+  #[cfg(not(feature = "no-copy"))]
   #[wasm_bindgen(skip)]
   pub unconsumed_len: Cell<usize>,
 
@@ -1020,11 +1024,14 @@ impl Parser {
       owner: Cell::new(ptr::null_mut()),
       state: Cell::new(0),
       position: Cell::new(0),
+      parsed: Cell::new(0),
       paused: Cell::new(false),
       error_code: Cell::new(ERROR_NONE),
       error_description: Cell::new(ptr::null()),
       error_description_len: Cell::new(0),
+      #[cfg(not(feature = "no-copy"))]
       unconsumed: Cell::new(ptr::null()),
+      #[cfg(not(feature = "no-copy"))]
       unconsumed_len: Cell::new(0),
       id: Cell::new(0),
       mode: Cell::new(0),
@@ -1050,14 +1057,14 @@ impl Parser {
   }
 
   /// Resets a parser. The second parameters specifies if to also reset the
-  /// position counter.
+  /// parsed counter.
   #[wasm_bindgen]
-  pub fn reset(&self, keep_position: bool) {
+  pub fn reset(&self, keep_parsed: bool) {
     self.state.set(0);
     self.paused.set(false);
 
-    if !keep_position {
-      self.position.set(0);
+    if !keep_parsed {
+      self.parsed.set(0);
     }
 
     self.error_code.set(ERROR_NONE);
@@ -1072,6 +1079,7 @@ impl Parser {
       self.error_description_len.set(0);
     }
 
+    #[cfg(not(feature = "no-copy"))]
     if self.unconsumed_len.get() > 0 {
       unsafe {
         let len = self.unconsumed_len.get();
@@ -1191,11 +1199,11 @@ impl Parser {
 
   /// Returns the current parser's state as string.
   #[wasm_bindgen(getter, js_name = "stateString")]
-  pub fn state_string(&self) -> String { c_match_state_string!() }
+  pub fn state_string(&self) -> String { States::try_from(self.state.get()).unwrap().into() }
 
   /// Returns the current parser's error state as string.
   #[wasm_bindgen(getter, js_name = "errorCodeString")]
-  pub fn error_code_string(&self) -> String { c_match_error_code_string!() }
+  pub fn error_code_string(&self) -> String { Errors::try_from(self.state.get()).unwrap().into() }
 
   /// Returns the current parser's error descrition.
   #[wasm_bindgen(getter, js_name = "errorDescription")]
@@ -1220,9 +1228,6 @@ impl Parser {
       return 0;
     }
 
-    let mut limit = limit;
-    let aggregate: Vec<c_uchar>;
-    let mut consumed = 0;
     let data = unsafe { from_raw_parts(data, limit) };
 
     parse!();
@@ -1253,10 +1258,6 @@ impl Parser {
       return Ok(0);
     }
 
-    let mut limit = limit;
-    let aggregate: Vec<c_uchar>;
-    let mut consumed = 0;
-
     parse!();
 
     if let ERROR_CALLBACK_ERROR = self.error_code.get() {
@@ -1271,6 +1272,9 @@ impl Parser {
 
   #[wasm_bindgen(getter, js_name = "position")]
   pub fn get_position(&self) -> u64 { self.position.get() }
+
+  #[wasm_bindgen(getter, js_name = "parsed")]
+  pub fn get_parsed(&self) -> u64 { self.parsed.get() }
 
   #[wasm_bindgen(getter, js_name = "paused")]
   pub fn get_paused(&self) -> bool { self.paused.get() }
@@ -1341,6 +1345,7 @@ impl Parser {
   #[wasm_bindgen(getter, js_name = "remainingChunkSize")]
   pub fn get_remaining_chunk_size(&self) -> u64 { self.remaining_chunk_size.get() }
 
+  #[cfg(not(feature = "no-copy"))]
   #[wasm_bindgen(getter, js_name = "unconsumed")]
   pub fn get_unconsumed_len(&self) -> usize { self.unconsumed_len.get() }
 
@@ -1353,6 +1358,22 @@ impl Parser {
 
 #[cfg(target_family = "wasm")]
 generate_callbacks_wasm_setters!();
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen]
+pub struct Flags {
+  pub debug: bool,
+  pub no_copy: bool,
+}
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen]
+pub fn flags() -> Flags {
+  Flags {
+    debug: cfg!(debug_assertions),
+    no_copy: cfg!(feature = "no-copy"),
+  }
+}
 
 /// A callback that simply returns `0`.
 ///
@@ -1396,7 +1417,7 @@ pub extern "C" fn milo_destroy(ptr: *mut Parser) {
 ///
 /// Resets a parser to its initial state.
 #[no_mangle]
-pub extern "C" fn milo_reset(parser: *const Parser, keep_position: bool) { unsafe { (*parser).reset(keep_position) } }
+pub extern "C" fn milo_reset(parser: *const Parser, keep_parsed: bool) { unsafe { (*parser).reset(keep_parsed) } }
 
 /// # Safety
 ///

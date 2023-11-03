@@ -9,6 +9,7 @@ const SOURCE_DIRECTORY = resolve(ROOT, 'deps/milo')
 const TARGET_DIRECTORY = resolve(ROOT, 'lib/milo')
 const DOCKERFILE = resolve(__dirname, './Dockerfile')
 const action = process.argv[2]
+const miloProfile = (process.argv[3] ?? process.env.MILO_PROFILE) === 'debug' ? 'debug' : 'release'
 
 let platform = process.env.WASM_PLATFORM
 
@@ -24,11 +25,10 @@ function execute (cmd) {
 }
 
 function copyArtifacts () {
-  const artifacts = resolve(SOURCE_DIRECTORY, `parser/dist/wasm/${process.env.MILO_PROFILE === 'debug' ? 'debug' : 'release'}`)
+  const artifacts = resolve(SOURCE_DIRECTORY, `parser/dist/wasm/${miloProfile}/no-copy`)
 
   execute(`rm -rf "${TARGET_DIRECTORY}"`)
   execute(`cp -a "${artifacts}" "${TARGET_DIRECTORY}"`)
-  execute(`rm "${resolve(TARGET_DIRECTORY, '.gitignore')}"`)
 }
 
 function clean () {
@@ -68,7 +68,7 @@ function runInDocker () {
 
 function build () {
   process.chdir(resolve(SOURCE_DIRECTORY, 'parser'))
-  execute('make -B wasm-release', { stdio: 'inherit' })
+  execute(`make -B wasm-${miloProfile}-no-copy`, { stdio: 'inherit' })
 }
 
 switch (action) {

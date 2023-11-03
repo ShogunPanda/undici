@@ -1,6 +1,144 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+* @returns {Flags}
+*/
+export function flags(): Flags;
+/**
+*/
+export enum MessageTypes {
+  AUTODETECT = 0,
+  REQUEST = 1,
+  RESPONSE = 2,
+}
+/**
+*/
+export enum Connections {
+  KEEPALIVE = 0,
+  CLOSE = 1,
+  UPGRADE = 2,
+}
+/**
+*/
+export enum Methods {
+  ACL = 0,
+  BASELINE_CONTROL = 1,
+  BIND = 2,
+  CHECKIN = 3,
+  CHECKOUT = 4,
+  CONNECT = 5,
+  COPY = 6,
+  DELETE = 7,
+  GET = 8,
+  HEAD = 9,
+  LABEL = 10,
+  LINK = 11,
+  LOCK = 12,
+  MERGE = 13,
+  MKACTIVITY = 14,
+  MKCALENDAR = 15,
+  MKCOL = 16,
+  MKREDIRECTREF = 17,
+  MKWORKSPACE = 18,
+  MOVE = 19,
+  OPTIONS = 20,
+  ORDERPATCH = 21,
+  PATCH = 22,
+  POST = 23,
+  PRI = 24,
+  PROPFIND = 25,
+  PROPPATCH = 26,
+  PUT = 27,
+  REBIND = 28,
+  REPORT = 29,
+  SEARCH = 30,
+  TRACE = 31,
+  UNBIND = 32,
+  UNCHECKOUT = 33,
+  UNLINK = 34,
+  UNLOCK = 35,
+  UPDATE = 36,
+  UPDATEREDIRECTREF = 37,
+  VERSION_CONTROL = 38,
+  DESCRIBE = 39,
+  GET_PARAMETER = 40,
+  PAUSE = 41,
+  PLAY = 42,
+  PLAY_NOTIFY = 43,
+  REDIRECT = 44,
+  SETUP = 45,
+  SET_PARAMETER = 46,
+  TEARDOWN = 47,
+  PURGE = 48,
+}
+/**
+*/
+export enum States {
+  START = 0,
+  FINISH = 1,
+  ERROR = 2,
+  MESSAGE = 3,
+  REQUEST = 4,
+  REQUEST_METHOD = 5,
+  REQUEST_URL = 6,
+  REQUEST_PROTOCOL = 7,
+  REQUEST_VERSION = 8,
+  RESPONSE = 9,
+  RESPONSE_VERSION = 10,
+  RESPONSE_STATUS = 11,
+  RESPONSE_REASON = 12,
+  HEADER_NAME = 13,
+  HEADER_TRANSFER_ENCODING = 14,
+  HEADER_CONTENT_LENGTH = 15,
+  HEADER_CONNECTION = 16,
+  HEADER_VALUE = 17,
+  HEADERS = 18,
+  BODY = 19,
+  TUNNEL = 20,
+  BODY_VIA_CONTENT_LENGTH = 21,
+  BODY_WITH_NO_LENGTH = 22,
+  CHUNK_LENGTH = 23,
+  CHUNK_EXTENSION_NAME = 24,
+  CHUNK_EXTENSION_VALUE = 25,
+  CHUNK_EXTENSION_QUOTED_VALUE = 26,
+  CHUNK_DATA = 27,
+  CHUNK_END = 28,
+  CRLF_AFTER_LAST_CHUNK = 29,
+  TRAILER_NAME = 30,
+  TRAILER_VALUE = 31,
+}
+/**
+*/
+export enum Errors {
+  NONE = 0,
+  UNEXPECTED_DATA = 1,
+  UNEXPECTED_EOF = 2,
+  CALLBACK_ERROR = 3,
+  UNEXPECTED_CHARACTER = 4,
+  UNEXPECTED_CONTENT_LENGTH = 5,
+  UNEXPECTED_TRANSFER_ENCODING = 6,
+  UNEXPECTED_CONTENT = 7,
+  UNTRAILERS = 8,
+  INVALID_VERSION = 9,
+  INVALID_STATUS = 10,
+  INVALID_CONTENT_LENGTH = 11,
+  INVALID_TRANSFER_ENCODING = 12,
+  INVALID_CHUNK_SIZE = 13,
+  MISSING_CONNECTION_UPGRADE = 14,
+  UNSUPPORTED_HTTP_VERSION = 15,
+}
+/**
+*/
+export class Flags {
+  free(): void;
+/**
+*/
+  debug: boolean;
+/**
+*/
+  no_copy: boolean;
+}
+/**
 */
 export class Parser {
   free(): void;
@@ -10,10 +148,10 @@ export class Parser {
   static new(): Parser;
 /**
 * Resets a parser. The second parameters specifies if to also reset the
-* position counter.
-* @param {boolean} keep_position
+* parsed counter.
+* @param {boolean} keep_parsed
 */
-  reset(keep_position: boolean): void;
+  reset(keep_parsed: boolean): void;
 /**
 * Clears all values in the parser.
 *
@@ -208,6 +346,9 @@ export class Parser {
   mode: number;
 /**
 */
+  readonly parsed: bigint;
+/**
+*/
   readonly paused: boolean;
 /**
 */
@@ -231,9 +372,6 @@ export class Parser {
 /**
 */
   readonly status: number;
-/**
-*/
-  readonly unconsumed: number;
 /**
 */
   readonly versionMajor: number;

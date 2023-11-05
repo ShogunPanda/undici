@@ -19,20 +19,10 @@ The HTTP parser used by `undici` is a WebAssembly build of [`milo`](https://gith
 
 The following are the steps required to perform an update.
 
-// TODO@PI: Verify these instructions
-#### Clone the [milo](https://github.com/nodejs/milo) project inside the deps folder
+#### Update the local copy of milo
 
 ```bash
-cd deps 
-rm -rf milo
-git clone git@github.com:ShogunPanda/milo.git
-cd milo
-```
-
-#### Checkout a `milo` release
-
-```bash
-git checkout <tag>
+npm run milo:download
 ```
 
 #### Build the WebAssembly module in `undici`
@@ -43,7 +33,7 @@ git checkout <tag>
 npm run build:milo
 ```
 
-You can also build the debug version by running
+You can also build the debug version by running:
 
 ```bash
 MILO_PROFILE=debug npm run build:milo

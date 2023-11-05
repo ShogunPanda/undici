@@ -24,7 +24,7 @@ export function parser_stateString(a: number, b: number): void;
 export function parser_errorCodeString(a: number, b: number): void;
 export function parser_errorDescription(a: number, b: number): void;
 export function parser_new_with_id(a: number): number;
-export function parser_parse(a: number, b: number, c: number, d: number, e: number): void;
+export function parser_parse(a: number, b: number, c: number, d: number): void;
 export function parser_state(a: number): number;
 export function parser_position(a: number): number;
 export function parser_parsed(a: number): number;

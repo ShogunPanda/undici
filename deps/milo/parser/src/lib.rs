@@ -1249,7 +1249,7 @@ impl Parser {
   }
 
   #[wasm_bindgen(js_name = "parse")]
-  pub fn parse_wasm(&self, data: &[u8], limit: usize) -> Result<usize, JsValue> {
+  pub fn parse_wasm(&self, ptr: *mut u8, limit: usize) -> Result<usize, JsValue> {
     #[cfg(debug_assertions)]
     std::panic::set_hook(Box::new(console_error_panic_hook::hook));
 
@@ -1257,6 +1257,8 @@ impl Parser {
     if self.paused.get() {
       return Ok(0);
     }
+
+    let data = unsafe { std::slice::from_raw_parts(ptr, limit) };
 
     parse!();
 

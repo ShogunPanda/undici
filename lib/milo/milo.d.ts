@@ -177,11 +177,11 @@ export class Parser {
 */
   constructor(id?: number);
 /**
-* @param {Uint8Array} data
+* @param {number} ptr
 * @param {number} limit
 * @returns {number}
 */
-  parse(data: Uint8Array, limit: number): number;
+  parse(ptr: number, limit: number): number;
 /**
 * @param {Function} cb
 */

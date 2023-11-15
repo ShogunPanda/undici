@@ -1,9 +1,47 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
-* @returns {Flags}
 */
-export function flags(): Flags;
+export enum States {
+  START = 0,
+  FINISH = 1,
+  ERROR = 2,
+  MESSAGE = 3,
+  REQUEST = 4,
+  REQUEST_METHOD = 5,
+  REQUEST_URL = 6,
+  REQUEST_PROTOCOL = 7,
+  REQUEST_VERSION = 8,
+  RESPONSE = 9,
+  RESPONSE_VERSION = 10,
+  RESPONSE_STATUS = 11,
+  RESPONSE_REASON = 12,
+  HEADER_NAME = 13,
+  HEADER_TRANSFER_ENCODING = 14,
+  HEADER_CONTENT_LENGTH = 15,
+  HEADER_CONNECTION = 16,
+  HEADER_VALUE = 17,
+  HEADERS = 18,
+  TUNNEL = 19,
+  BODY_VIA_CONTENT_LENGTH = 20,
+  BODY_WITH_NO_LENGTH = 21,
+  CHUNK_LENGTH = 22,
+  CHUNK_EXTENSION_NAME = 23,
+  CHUNK_EXTENSION_VALUE = 24,
+  CHUNK_EXTENSION_QUOTED_VALUE = 25,
+  CHUNK_DATA = 26,
+  CHUNK_END = 27,
+  CRLF_AFTER_LAST_CHUNK = 28,
+  TRAILER_NAME = 29,
+  TRAILER_VALUE = 30,
+}
+/**
+*/
+export enum Connections {
+  KEEPALIVE = 0,
+  CLOSE = 1,
+  UPGRADE = 2,
+}
 /**
 */
 export enum MessageTypes {
@@ -13,10 +51,20 @@ export enum MessageTypes {
 }
 /**
 */
-export enum Connections {
-  KEEPALIVE = 0,
-  CLOSE = 1,
-  UPGRADE = 2,
+export enum Offsets {
+  METHOD = 0,
+  URL = 1,
+  PROTOCOL = 2,
+  VERSION = 3,
+  STATUS = 4,
+  REASON = 5,
+  HEADER_NAME = 6,
+  HEADER_VALUE = 7,
+  CHUNK_LENGTH = 8,
+  CHUNK_EXTENSION_NAME = 9,
+  CHUNK_EXTENSION_VALUE = 10,
+  TRAILER_NAME = 11,
+  TRAILER_VALUE = 12,
 }
 /**
 */
@@ -73,42 +121,6 @@ export enum Methods {
 }
 /**
 */
-export enum States {
-  START = 0,
-  FINISH = 1,
-  ERROR = 2,
-  MESSAGE = 3,
-  REQUEST = 4,
-  REQUEST_METHOD = 5,
-  REQUEST_URL = 6,
-  REQUEST_PROTOCOL = 7,
-  REQUEST_VERSION = 8,
-  RESPONSE = 9,
-  RESPONSE_VERSION = 10,
-  RESPONSE_STATUS = 11,
-  RESPONSE_REASON = 12,
-  HEADER_NAME = 13,
-  HEADER_TRANSFER_ENCODING = 14,
-  HEADER_CONTENT_LENGTH = 15,
-  HEADER_CONNECTION = 16,
-  HEADER_VALUE = 17,
-  HEADERS = 18,
-  BODY = 19,
-  TUNNEL = 20,
-  BODY_VIA_CONTENT_LENGTH = 21,
-  BODY_WITH_NO_LENGTH = 22,
-  CHUNK_LENGTH = 23,
-  CHUNK_EXTENSION_NAME = 24,
-  CHUNK_EXTENSION_VALUE = 25,
-  CHUNK_EXTENSION_QUOTED_VALUE = 26,
-  CHUNK_DATA = 27,
-  CHUNK_END = 28,
-  CRLF_AFTER_LAST_CHUNK = 29,
-  TRAILER_NAME = 30,
-  TRAILER_VALUE = 31,
-}
-/**
-*/
 export enum Errors {
   NONE = 0,
   UNEXPECTED_DATA = 1,
@@ -126,17 +138,6 @@ export enum Errors {
   INVALID_CHUNK_SIZE = 13,
   MISSING_CONNECTION_UPGRADE = 14,
   UNSUPPORTED_HTTP_VERSION = 15,
-}
-/**
-*/
-export class Flags {
-  free(): void;
-/**
-*/
-  debug: boolean;
-/**
-*/
-  no_copy: boolean;
 }
 /**
 */
@@ -172,16 +173,20 @@ export class Parser {
 */
   finish(): void;
 /**
+*/
+  clearOffsets(): void;
+/**
 * Creates a new parser.
 * @param {number | undefined} id
+* @param {number} input
+* @param {number} offsets
 */
-  constructor(id?: number);
+  constructor(id: number | undefined, input: number, offsets: number);
 /**
-* @param {number} ptr
 * @param {number} limit
 * @returns {number}
 */
-  parse(ptr: number, limit: number): number;
+  parse(limit: number): number;
 /**
 * @param {Function} cb
 */
@@ -277,6 +282,10 @@ export class Parser {
 /**
 * @param {Function} cb
 */
+  setOnChunk(cb: Function): void;
+/**
+* @param {Function} cb
+*/
   setOnBody(cb: Function): void;
 /**
 * @param {Function} cb
@@ -310,13 +319,8 @@ export class Parser {
 */
   readonly errorCode: number;
 /**
-* Returns the current parser's error state as string.
 */
-  readonly errorCodeString: string;
-/**
-* Returns the current parser's error descrition.
-*/
-  readonly errorDescription: string;
+  readonly errorDescription: any;
 /**
 */
   readonly hasChunkedTransferEncoding: boolean;
@@ -334,7 +338,13 @@ export class Parser {
   id: number;
 /**
 */
+  inputBuffer: number;
+/**
+*/
   isConnect: boolean;
+/**
+*/
+  manageUnconsumed: boolean;
 /**
 */
   readonly messageType: number;
@@ -346,13 +356,16 @@ export class Parser {
   mode: number;
 /**
 */
+  offsetsBuffer: number;
+/**
+*/
   readonly parsed: bigint;
 /**
 */
   readonly paused: boolean;
 /**
 */
-  readonly position: bigint;
+  readonly position: number;
 /**
 */
   readonly remainingChunkSize: bigint;
@@ -366,12 +379,11 @@ export class Parser {
 */
   readonly state: number;
 /**
-* Returns the current parser's state as string.
-*/
-  readonly stateString: string;
-/**
 */
   readonly status: number;
+/**
+*/
+  readonly unconsumed: number;
 /**
 */
   readonly versionMajor: number;
@@ -379,106 +391,108 @@ export class Parser {
 */
   readonly versionMinor: number;
 }
-export declare const AUTODETECT: number = 0;
-export declare const REQUEST: number = 1;
-export declare const RESPONSE: number = 2;
-export declare const CONNECTION_KEEPALIVE: number = 0;
-export declare const CONNECTION_CLOSE: number = 1;
-export declare const CONNECTION_UPGRADE: number = 2;
-export declare const METHOD_ACL: number = 0;
-export declare const METHOD_BASELINE_CONTROL: number = 1;
-export declare const METHOD_BIND: number = 2;
-export declare const METHOD_CHECKIN: number = 3;
-export declare const METHOD_CHECKOUT: number = 4;
-export declare const METHOD_CONNECT: number = 5;
-export declare const METHOD_COPY: number = 6;
-export declare const METHOD_DELETE: number = 7;
-export declare const METHOD_GET: number = 8;
-export declare const METHOD_HEAD: number = 9;
-export declare const METHOD_LABEL: number = 10;
-export declare const METHOD_LINK: number = 11;
-export declare const METHOD_LOCK: number = 12;
-export declare const METHOD_MERGE: number = 13;
-export declare const METHOD_MKACTIVITY: number = 14;
-export declare const METHOD_MKCALENDAR: number = 15;
-export declare const METHOD_MKCOL: number = 16;
-export declare const METHOD_MKREDIRECTREF: number = 17;
-export declare const METHOD_MKWORKSPACE: number = 18;
-export declare const METHOD_MOVE: number = 19;
-export declare const METHOD_OPTIONS: number = 20;
-export declare const METHOD_ORDERPATCH: number = 21;
-export declare const METHOD_PATCH: number = 22;
-export declare const METHOD_POST: number = 23;
-export declare const METHOD_PRI: number = 24;
-export declare const METHOD_PROPFIND: number = 25;
-export declare const METHOD_PROPPATCH: number = 26;
-export declare const METHOD_PUT: number = 27;
-export declare const METHOD_REBIND: number = 28;
-export declare const METHOD_REPORT: number = 29;
-export declare const METHOD_SEARCH: number = 30;
-export declare const METHOD_TRACE: number = 31;
-export declare const METHOD_UNBIND: number = 32;
-export declare const METHOD_UNCHECKOUT: number = 33;
-export declare const METHOD_UNLINK: number = 34;
-export declare const METHOD_UNLOCK: number = 35;
-export declare const METHOD_UPDATE: number = 36;
-export declare const METHOD_UPDATEREDIRECTREF: number = 37;
-export declare const METHOD_VERSION_CONTROL: number = 38;
-export declare const METHOD_DESCRIBE: number = 39;
-export declare const METHOD_GET_PARAMETER: number = 40;
-export declare const METHOD_PAUSE: number = 41;
-export declare const METHOD_PLAY: number = 42;
-export declare const METHOD_PLAY_NOTIFY: number = 43;
-export declare const METHOD_REDIRECT: number = 44;
-export declare const METHOD_SETUP: number = 45;
-export declare const METHOD_SET_PARAMETER: number = 46;
-export declare const METHOD_TEARDOWN: number = 47;
-export declare const METHOD_PURGE: number = 48;
-export declare const ERROR_NONE: number = 0;
-export declare const ERROR_UNEXPECTED_DATA: number = 1;
-export declare const ERROR_UNEXPECTED_EOF: number = 2;
-export declare const ERROR_CALLBACK_ERROR: number = 3;
-export declare const ERROR_UNEXPECTED_CHARACTER: number = 4;
-export declare const ERROR_UNEXPECTED_CONTENT_LENGTH: number = 5;
-export declare const ERROR_UNEXPECTED_TRANSFER_ENCODING: number = 6;
-export declare const ERROR_UNEXPECTED_CONTENT: number = 7;
-export declare const ERROR_UNTRAILERS: number = 8;
-export declare const ERROR_INVALID_VERSION: number = 9;
-export declare const ERROR_INVALID_STATUS: number = 10;
-export declare const ERROR_INVALID_CONTENT_LENGTH: number = 11;
-export declare const ERROR_INVALID_TRANSFER_ENCODING: number = 12;
-export declare const ERROR_INVALID_CHUNK_SIZE: number = 13;
-export declare const ERROR_MISSING_CONNECTION_UPGRADE: number = 14;
-export declare const ERROR_UNSUPPORTED_HTTP_VERSION: number = 15;
-export declare const STATE_START: number = 0;
-export declare const STATE_FINISH: number = 1;
-export declare const STATE_ERROR: number = 2;
-export declare const STATE_MESSAGE: number = 3;
-export declare const STATE_REQUEST: number = 4;
-export declare const STATE_REQUEST_METHOD: number = 5;
-export declare const STATE_REQUEST_URL: number = 6;
-export declare const STATE_REQUEST_PROTOCOL: number = 7;
-export declare const STATE_REQUEST_VERSION: number = 8;
-export declare const STATE_RESPONSE: number = 9;
-export declare const STATE_RESPONSE_VERSION: number = 10;
-export declare const STATE_RESPONSE_STATUS: number = 11;
-export declare const STATE_RESPONSE_REASON: number = 12;
-export declare const STATE_HEADER_NAME: number = 13;
-export declare const STATE_HEADER_TRANSFER_ENCODING: number = 14;
-export declare const STATE_HEADER_CONTENT_LENGTH: number = 15;
-export declare const STATE_HEADER_CONNECTION: number = 16;
-export declare const STATE_HEADER_VALUE: number = 17;
-export declare const STATE_HEADERS: number = 18;
-export declare const STATE_BODY: number = 19;
-export declare const STATE_TUNNEL: number = 20;
-export declare const STATE_BODY_VIA_CONTENT_LENGTH: number = 21;
-export declare const STATE_BODY_WITH_NO_LENGTH: number = 22;
-export declare const STATE_CHUNK_LENGTH: number = 23;
-export declare const STATE_CHUNK_EXTENSION_NAME: number = 24;
-export declare const STATE_CHUNK_EXTENSION_VALUE: number = 25;
-export declare const STATE_CHUNK_EXTENSION_QUOTED_VALUE: number = 26;
-export declare const STATE_CHUNK_DATA: number = 27;
-export declare const STATE_CHUNK_END: number = 28;
-export declare const STATE_CRLF_AFTER_LAST_CHUNK: number = 29;
-export declare const STATE_TRAILER_NAME: number = 30;
-export declare const STATE_TRAILER_VALUE: number = 31;
+export declare const AUTODETECT: number = 0
+export declare const REQUEST: number = 1
+export declare const RESPONSE: number = 2
+export declare const CONNECTION_KEEPALIVE: number = 0
+export declare const CONNECTION_CLOSE: number = 1
+export declare const CONNECTION_UPGRADE: number = 2
+export declare const METHOD_ACL: number = 0
+export declare const METHOD_BASELINE_CONTROL: number = 1
+export declare const METHOD_BIND: number = 2
+export declare const METHOD_CHECKIN: number = 3
+export declare const METHOD_CHECKOUT: number = 4
+export declare const METHOD_CONNECT: number = 5
+export declare const METHOD_COPY: number = 6
+export declare const METHOD_DELETE: number = 7
+export declare const METHOD_GET: number = 8
+export declare const METHOD_HEAD: number = 9
+export declare const METHOD_LABEL: number = 10
+export declare const METHOD_LINK: number = 11
+export declare const METHOD_LOCK: number = 12
+export declare const METHOD_MERGE: number = 13
+export declare const METHOD_MKACTIVITY: number = 14
+export declare const METHOD_MKCALENDAR: number = 15
+export declare const METHOD_MKCOL: number = 16
+export declare const METHOD_MKREDIRECTREF: number = 17
+export declare const METHOD_MKWORKSPACE: number = 18
+export declare const METHOD_MOVE: number = 19
+export declare const METHOD_OPTIONS: number = 20
+export declare const METHOD_ORDERPATCH: number = 21
+export declare const METHOD_PATCH: number = 22
+export declare const METHOD_POST: number = 23
+export declare const METHOD_PRI: number = 24
+export declare const METHOD_PROPFIND: number = 25
+export declare const METHOD_PROPPATCH: number = 26
+export declare const METHOD_PUT: number = 27
+export declare const METHOD_REBIND: number = 28
+export declare const METHOD_REPORT: number = 29
+export declare const METHOD_SEARCH: number = 30
+export declare const METHOD_TRACE: number = 31
+export declare const METHOD_UNBIND: number = 32
+export declare const METHOD_UNCHECKOUT: number = 33
+export declare const METHOD_UNLINK: number = 34
+export declare const METHOD_UNLOCK: number = 35
+export declare const METHOD_UPDATE: number = 36
+export declare const METHOD_UPDATEREDIRECTREF: number = 37
+export declare const METHOD_VERSION_CONTROL: number = 38
+export declare const METHOD_DESCRIBE: number = 39
+export declare const METHOD_GET_PARAMETER: number = 40
+export declare const METHOD_PAUSE: number = 41
+export declare const METHOD_PLAY: number = 42
+export declare const METHOD_PLAY_NOTIFY: number = 43
+export declare const METHOD_REDIRECT: number = 44
+export declare const METHOD_SETUP: number = 45
+export declare const METHOD_SET_PARAMETER: number = 46
+export declare const METHOD_TEARDOWN: number = 47
+export declare const METHOD_PURGE: number = 48
+export declare const ERROR_NONE: number = 0
+export declare const ERROR_UNEXPECTED_DATA: number = 1
+export declare const ERROR_UNEXPECTED_EOF: number = 2
+export declare const ERROR_CALLBACK_ERROR: number = 3
+export declare const ERROR_UNEXPECTED_CHARACTER: number = 4
+export declare const ERROR_UNEXPECTED_CONTENT_LENGTH: number = 5
+export declare const ERROR_UNEXPECTED_TRANSFER_ENCODING: number = 6
+export declare const ERROR_UNEXPECTED_CONTENT: number = 7
+export declare const ERROR_UNTRAILERS: number = 8
+export declare const ERROR_INVALID_VERSION: number = 9
+export declare const ERROR_INVALID_STATUS: number = 10
+export declare const ERROR_INVALID_CONTENT_LENGTH: number = 11
+export declare const ERROR_INVALID_TRANSFER_ENCODING: number = 12
+export declare const ERROR_INVALID_CHUNK_SIZE: number = 13
+export declare const ERROR_MISSING_CONNECTION_UPGRADE: number = 14
+export declare const ERROR_UNSUPPORTED_HTTP_VERSION: number = 15
+export declare const STATE_START: number = 0
+export declare const STATE_FINISH: number = 1
+export declare const STATE_ERROR: number = 2
+export declare const STATE_MESSAGE: number = 3
+export declare const STATE_REQUEST: number = 4
+export declare const STATE_REQUEST_METHOD: number = 5
+export declare const STATE_REQUEST_URL: number = 6
+export declare const STATE_REQUEST_PROTOCOL: number = 7
+export declare const STATE_REQUEST_VERSION: number = 8
+export declare const STATE_RESPONSE: number = 9
+export declare const STATE_RESPONSE_VERSION: number = 10
+export declare const STATE_RESPONSE_STATUS: number = 11
+export declare const STATE_RESPONSE_REASON: number = 12
+export declare const STATE_HEADER_NAME: number = 13
+export declare const STATE_HEADER_TRANSFER_ENCODING: number = 14
+export declare const STATE_HEADER_CONTENT_LENGTH: number = 15
+export declare const STATE_HEADER_CONNECTION: number = 16
+export declare const STATE_HEADER_VALUE: number = 17
+export declare const STATE_HEADERS: number = 18
+export declare const STATE_TUNNEL: number = 19
+export declare const STATE_BODY_VIA_CONTENT_LENGTH: number = 20
+export declare const STATE_BODY_WITH_NO_LENGTH: number = 21
+export declare const STATE_CHUNK_LENGTH: number = 22
+export declare const STATE_CHUNK_EXTENSION_NAME: number = 23
+export declare const STATE_CHUNK_EXTENSION_VALUE: number = 24
+export declare const STATE_CHUNK_EXTENSION_QUOTED_VALUE: number = 25
+export declare const STATE_CHUNK_DATA: number = 26
+export declare const STATE_CHUNK_END: number = 27
+export declare const STATE_CRLF_AFTER_LAST_CHUNK: number = 28
+export declare const STATE_TRAILER_NAME: number = 29
+export declare const STATE_TRAILER_VALUE: number = 30
+export function malloc(a: number, b: number): number
+export declare const FLAGS_DEBUG: boolean = false
+export declare const FLAGS_ALL_CALLBACKS: boolean = false

@@ -25,7 +25,7 @@ function execute (cmd) {
 }
 
 function copyArtifacts () {
-  const artifacts = resolve(SOURCE_DIRECTORY, `parser/dist/wasm/${miloProfile}/no-copy`)
+  const artifacts = resolve(SOURCE_DIRECTORY, `parser/dist/wasm/${miloProfile}-default`)
 
   execute(`rm -rf "${TARGET_DIRECTORY}"`)
   execute(`cp -a "${artifacts}" "${TARGET_DIRECTORY}"`)
@@ -44,6 +44,9 @@ function download () {
   execute('mv milo-main milo')
   execute('rm -rf milo.zip milo/benchmarks milo/docs milo/references')
   execute('rm -rf milo/.gitignore milo/CHANGELOG.md milo/CODE_OF_CONDUCT.md milo/LICENSE.md milo/README.md milo/macros/README.md milo/parser/README.md')
+  process.chdir(resolve(SOURCE_DIRECTORY, 'parser/tools'))
+  execute('npm install')
+  process.chdir(resolve(SOURCE_DIRECTORY, '../..'))
 }
 
 function buildImage () {
@@ -68,7 +71,7 @@ function runInDocker () {
 
 function build () {
   process.chdir(resolve(SOURCE_DIRECTORY, 'parser'))
-  execute(`make -B wasm-${miloProfile}-no-copy`, { stdio: 'inherit' })
+  execute(`makers wasm-${miloProfile}-default`, { stdio: 'inherit' })
 }
 
 switch (action) {
@@ -77,6 +80,8 @@ switch (action) {
     break
   case 'download':
     download()
+    build()
+    copyArtifacts()
     break
   case 'image':
     ensurePlatform()
@@ -86,10 +91,8 @@ switch (action) {
     ensurePlatform()
     runInDocker()
     break
-  case 'local':
+  default:
     build()
     copyArtifacts()
     break
-  default:
-    build()
 }

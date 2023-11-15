@@ -1,5 +1,5 @@
 [package]
-name = "milo-parser-macros"
+name = "milo-macros"
 version = "0.1.0"
 edition = "2021"
 publish = false

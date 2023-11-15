@@ -26,6 +26,12 @@ pub struct IdentifiersWithStatements {
   pub statements: Vec<Stmt>,
 }
 
+/// A identifier associated with a string. It is used by `declare_string!`.
+pub struct StringDeclaration {
+  pub name: Ident,
+  pub value: LitStr,
+}
+
 /// A string length associated with a numeric modifier. It is used by
 /// `string_length!`.
 pub struct StringLength {
@@ -114,6 +120,17 @@ impl Parse for IdentifiersWithStatements {
       name,
       statements: body.stmts,
     })
+  }
+}
+
+impl Parse for StringDeclaration {
+  // Parses a string length
+  fn parse(input: ParseStream) -> Result<Self> {
+    let name = input.parse()?;
+    input.parse::<Token![,]>()?;
+    let value = input.parse()?;
+
+    Ok(StringDeclaration { name, value })
   }
 }
 

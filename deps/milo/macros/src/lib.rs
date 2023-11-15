@@ -7,7 +7,7 @@ use std::sync::OnceLock;
 use std::{collections::HashMap, ffi::c_uchar};
 
 use indexmap::{IndexMap, IndexSet};
-use parsing::{Failure, Identifiers, IdentifiersWithExpr, IdentifiersWithStatements, StringLength};
+use parsing::{Failure, Identifiers, IdentifiersWithExpr, IdentifiersWithStatements, StringDeclaration, StringLength};
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use regex::{Captures, Regex};
@@ -181,10 +181,30 @@ pub fn state(input: TokenStream) -> TokenStream {
 
   TokenStream::from(quote! {
     #[inline(always)]
-    fn #function (parser: &Parser, data: &[c_uchar]) -> isize {
+    fn #function (parser: &Parser, data: &[c_uchar]) -> Result<isize, ParserError> {
       let mut data = data;
       #(#statements)*
     }
+  })
+}
+
+/// Define a new constant string
+#[proc_macro]
+pub fn declare_string(input: TokenStream) -> TokenStream {
+  let definition = parse_macro_input!(input as StringDeclaration);
+  let name = definition.name;
+  let name_len = format_ident!("{}_LEN", name);
+  let value = definition.value.value();
+
+  let length = value.len();
+  let bytes: Vec<_> = value
+    .bytes()
+    .map(|b| LitByte::new(b, definition.value.span()))
+    .collect();
+
+  TokenStream::from(quote! {
+    const #name: [u8; #length] = [#(#bytes),*];
+    const #name_len: usize = #length;
   })
 }
 
@@ -370,6 +390,14 @@ pub fn string_length(input: TokenStream) -> TokenStream {
   TokenStream::from(quote! { #len })
 }
 
+// Marks a certain number of characters as used.
+#[proc_macro]
+pub fn advance(input: TokenStream) -> TokenStream {
+  let name = parse_macro_input!(input as Ident);
+
+  TokenStream::from(quote! { Ok(#name as isize) })
+}
+
 #[proc_macro]
 /// Moves the parsers to a new state and marks a certain number of characters as
 /// used.
@@ -392,14 +420,14 @@ pub fn move_to(input: TokenStream) -> TokenStream {
       TokenStream::from(quote! {
         {
           parser.state.set(#state);
-          (#expr) as isize
+          Ok((#expr) as isize)
         }
       })
     } else {
       TokenStream::from(quote! {
         {
           parser.state.set(#state);
-          1
+          Ok(1)
         }
       })
     }
@@ -414,9 +442,9 @@ pub fn fail(input: TokenStream) -> TokenStream {
   let message = definition.message;
 
   if let Expr::Lit(_) = message {
-    TokenStream::from(quote! { parser.fail_str(#error, #message) })
-  } else {
     TokenStream::from(quote! { parser.fail(#error, #message) })
+  } else {
+    TokenStream::from(quote! { parser.fail_with_string(#error, #message) })
   }
 }
 
@@ -433,132 +461,46 @@ pub fn consume(input: TokenStream) -> TokenStream {
   let ident = definition.to_string();
   let name = ident.as_str();
 
-  let table = match name {
-    "digit" => {
-      quote! {
-        let table = digit_table.get_or_init(|| {
-          let mut table = [false; 256];
+  let valid_tables = [
+    "digit",
+    "hex_digit",
+    "token",
+    "token_value",
+    "token_value_quoted",
+    "url",
+    "ws",
+  ];
 
-          for i in 0x30..=0x39 {
-            table[i] = true;
-          }
-
-          table
-        });
-      }
-    }
-    "hex_digit" => {
-      quote! {
-        let table = hex_digit_table.get_or_init(|| {
-          let mut table = [false; 256];
-
-          for i in 0x30..=0x39 {
-            table[i] = true;
-          }
-
-          for i in 0x41..=0x46 {
-            table[i] = true;
-          }
-
-          for i in 0x61..=0x66 {
-            table[i] = true;
-          }
-
-          table
-        });
-      }
-    }
-    "token" => {
-      quote! {
-        let table = token_table.get_or_init(|| {
-          let mut table = [false; 256];
-
-          for i in 0..=255 {
-            if let token!() = i {
-              table[i as usize] = true;
-            }
-          }
-
-          table
-        });
-      }
-    }
-    "token_value" => {
-      quote! {
-        let table = token_value_table.get_or_init(|| {
-          let mut table = [false; 256];
-          table[9] = true;
-          table[32] = true;
-
-          for i in 0x21..=0xff {
-            if i != 0x7f {
-              table[i] = true;
-            }
-          }
-
-          table
-        });
-      }
-    }
-    "token_value_quoted" => {
-      quote! {
-        let table = token_value_quote_table.get_or_init(|| {
-          let mut table = [false; 256];
-          table[9] = true;
-          table[32] = true;
-
-          for i in 0x21..=0x7e {
-            table[i] = true;
-          }
-
-          table
-        });
-      }
-    }
-    "url" => {
-      quote! {
-        let table = url_table.get_or_init(|| {
-          let mut table = [false; 256];
-
-          for i in 0..=255 {
-            if let url!() = i {
-              table[i as usize] = true;
-            }
-          }
-
-          table
-        });
-      }
-    }
-    "ws" => {
-      quote! {
-        let table = ws_table.get_or_init(|| {
-          let mut table = [false; 256];
-          table[9] = true;
-          table[32] = true;
-
-          table
-        });
-      }
-    }
-    _ => panic!("Unsupported consumed type {}", name),
+  let table: Ident = if valid_tables.contains(&name) {
+    format_ident!("{}_table", name)
+  } else {
+    panic!("Unsupported consumed type {}", name)
   };
 
   TokenStream::from(quote! {
-    #table
-
     let max = data.len();
-    let mut consumed = data.iter().position(|x| !table[*x as usize]).unwrap_or(max);
+    let mut consumed = max;
+
+    // Future: SIMD checks 8 by 8?
+    for i in 0..max {
+      if !#table[data[i] as usize] {
+        consumed = i;
+        break;
+      }
+    }
 
     if(consumed == max) {
-      return SUSPEND;
+      return Ok(SUSPEND);
     }
   })
 }
 
-fn callback_internal(input: TokenStream, return_on_error: bool, use_self: bool) -> TokenStream {
-  let definition = parse_macro_input!(input as IdentifiersWithExpr);
-  let callback = definition.identifier;
+fn callback_regular(
+  definition: &IdentifiersWithExpr,
+  return_on_error: bool,
+  use_self: bool,
+) -> proc_macro2::TokenStream {
+  let callback = &definition.identifier;
   let callback_name = callback.to_string();
 
   let parser = if use_self {
@@ -567,20 +509,64 @@ fn callback_internal(input: TokenStream, return_on_error: bool, use_self: bool) 
     format_ident!("parser")
   };
 
-  // TODO@PI: Check what happens when it returns undefined
+  let invocation = if let Some(length) = &definition.expr {
+    quote! { (#parser.callbacks.#callback.get())(#parser, #parser.position.get() as usize, (#length) as usize) }
+  } else {
+    quote! { (#parser.callbacks.#callback.get())(#parser, 0, 0) }
+  };
+
+  let error_message = format!("Callback {} failed with non zero return value.", callback_name);
+  let error_handling = if return_on_error {
+    quote! {
+      return #parser.fail(ERROR_CALLBACK_ERROR, #error_message);
+    }
+  } else {
+    quote! {
+      let _ = #parser.fail(ERROR_CALLBACK_ERROR, #error_message);
+    }
+  };
+
+  quote! {
+    let invocation_result = #invocation;
+
+    if invocation_result != 0 {
+      #error_handling
+    }
+  }
+}
+
+fn callback_wasm(definition: &IdentifiersWithExpr, return_on_error: bool, use_self: bool) -> proc_macro2::TokenStream {
+  let callback = &definition.identifier;
+  let callback_name = callback.to_string();
+
+  let parser = if use_self {
+    format_ident!("self")
+  } else {
+    format_ident!("parser")
+  };
+
+  // Prepopulate the message without runtime format
+  let callback_no_return_number = format!("The callback for {} must return a number.", callback_name);
+
   let validate_wasm = if return_on_error {
     quote! {
-      if let Err(err) = ret {
-        return #parser.fail(ERROR_CALLBACK_ERROR, format!("The callback for {} has failed: {}.", #callback_name, err.as_string().unwrap()));
+      match ret {
+        Ok(value) => {
+          match value.as_f64() {
+            Some(number) => number as isize,
+            None => {
+              return #parser.fail(ERROR_CALLBACK_ERROR, #callback_no_return_number);
+            }
+          }
+        }
+        Err(err) => {
+          if js_sys::Error::instanceof(&err) {
+            return Err(err.into());
+          } else {
+            return Err(js_sys::Error::new(err.as_string().unwrap().as_str()).into());
+          }
+        }
       }
-
-      let value = ret.unwrap().as_f64();
-
-      if let None = value {
-        return #parser.fail(ERROR_CALLBACK_ERROR, format!("The callback for {} must return a number.", #callback_name));
-      }
-
-      value.unwrap() as isize
     }
   } else {
     quote! {
@@ -589,97 +575,95 @@ fn callback_internal(input: TokenStream, return_on_error: bool, use_self: bool) 
           match value.as_f64() {
             Some(number) => number as isize,
             None => {
-              #parser.fail(ERROR_CALLBACK_ERROR, format!("The callback for {} must return a number.", #callback_name));
+              let _ = #parser.fail(ERROR_CALLBACK_ERROR, #callback_no_return_number);
               0 as isize
             }
           }
         }
         Err(err) => {
-          #parser.fail(ERROR_CALLBACK_ERROR, format!("The callback for {} has failed: {}.", #callback_name, err.as_string().unwrap()));
           0 as isize
         }
       }
     }
   };
 
-  let (invocation, invocation_wasm) = if let Some(length) = definition.expr {
-    (
-      quote! {
-        {
-          #[cfg(not(feature = "no-copy"))]
-          {
-            (#parser.callbacks.#callback.get())(#parser, data.as_ptr(), (#length) as usize)
-          }
-
-          #[cfg(feature = "no-copy")]
-          {
-            (#parser.callbacks.#callback.get())(#parser, #parser.position.get() as usize, (#length) as usize)
-          }
-        }
-      },
-      quote! {
-        {
-          // TODO@PI: Handle when the return value is not an integer
-
-          #[cfg(not(feature = "no-copy"))]
-          let ret = #parser.callbacks.#callback.call2(&JsValue::NULL, unsafe { &Uint8Array::view(data) }, &JsValue::from(#length));
-
-          #[cfg(feature = "no-copy")]
-          let ret = #parser.callbacks.#callback.call2(&JsValue::NULL, &JsValue::from(#parser.position.get() as usize), &JsValue::from(#length));
-
-          #validate_wasm
-        }
-      },
-    )
+  let invocation = if let Some(length) = &definition.expr {
+    quote! {
+      {
+        let ret = #parser.callbacks.#callback.call2(&JsValue::NULL, &JsValue::from(#parser.position.get() as usize), &JsValue::from(#length));
+        #validate_wasm
+      }
+    }
   } else {
-    (
-      quote! {
-        {
-          #[cfg(not(feature = "no-copy"))]
-          {
-            (#parser.callbacks.#callback.get())(#parser, ptr::null(), 0)
-          }
-
-          #[cfg(feature = "no-copy")]
-          {
-            (#parser.callbacks.#callback.get())(#parser, 0, 0)
-          }
-        }
-      },
-      quote! {
-        {
-          let ret = #parser.callbacks.#callback.call0(&JsValue::NULL);
-          #validate_wasm
-        }
-      },
-    )
+    quote! {
+      {
+        let ret = #parser.callbacks.#callback.call0(&JsValue::NULL);
+        #validate_wasm
+      }
+    }
   };
 
+  let error_message = format!("Callback {} failed with non zero return value.", callback_name);
   let error_handling = if return_on_error {
     quote! {
-      return #parser.fail(
-        ERROR_CALLBACK_ERROR,
-        format!("Callback {} failed with return value {}.", #callback_name, invocation_result),
-      );
+      return #parser.fail(ERROR_CALLBACK_ERROR, #error_message);
     }
   } else {
     quote! {
-      #parser.fail(
-        ERROR_CALLBACK_ERROR,
-        format!("Callback {} failed with return value {}.", #callback_name, invocation_result),
-      );
+      let _ = #parser.fail(ERROR_CALLBACK_ERROR, #error_message);
     }
   };
 
-  TokenStream::from(quote! {
-    #[cfg(not(target_family = "wasm"))]
+  quote! {
     let invocation_result = #invocation;
-
-    #[cfg(target_family = "wasm")]
-    let invocation_result = #invocation_wasm;
 
     if invocation_result != 0 {
       #error_handling
+    }
+  }
+}
+
+/// Invokes one of the user defined callbacks, eventually attaching some view of
+/// the data (via pointer and length). If the callback errors, the operation is
+/// NOT interrupted.
+///
+/// If the feature all-callback is not enabled, this call will just append the
+/// location information to the offsets.
+#[proc_macro]
+pub fn optional_callback(input: TokenStream) -> TokenStream {
+  let definition = parse_macro_input!(input as IdentifiersWithExpr);
+  let regular = callback_regular(&definition, true, false);
+  let wasm = callback_wasm(&definition, true, false);
+
+  let offset = format_ident!("OFFSET_{}", definition.identifier.to_string().to_uppercase()[3..]);
+  let length = definition.expr.unwrap();
+
+  TokenStream::from(quote! {
+    #[cfg(not(feature = "all-callbacks"))]
+    unsafe {
+      let offsets = parser.offsets.get();
+
+      // Get the current offset (and add 1 as the first three are reserved)
+      let current = (*offsets.offset(2) + 1) as isize * 3;
+
+      // Update the counter
+      // TODO@PI: Handle overflow
+      *(offsets.offset(2)) += 1;
+
+      // Set the offset type, the start and the length
+      *(offsets.offset(current)) = #offset;
+      *(offsets.offset(current + 1)) = parser.position.get();
+      *(offsets.offset(current + 2)) = #length;
+    }
+
+    #[cfg(all(feature = "all-callbacks", not(target_family = "wasm")))]
+    {
+      #regular
+    }
+
+    #[cfg(all(feature = "all-callbacks", target_family = "wasm"))]
+    {
+      #wasm
     }
   })
 }
@@ -688,17 +672,49 @@ fn callback_internal(input: TokenStream, return_on_error: bool, use_self: bool) 
 /// the data (via pointer and length). If the callback errors, the operation is
 /// NOT interrupted.
 #[proc_macro]
-pub fn callback(input: TokenStream) -> TokenStream { callback_internal(input, true, false) }
+pub fn callback(input: TokenStream) -> TokenStream {
+  let definition = parse_macro_input!(input as IdentifiersWithExpr);
+  let regular = callback_regular(&definition, true, false);
+  let wasm = callback_wasm(&definition, true, false);
+
+  TokenStream::from(quote! {
+    #[cfg(not(target_family = "wasm"))]
+    {
+      #regular
+    }
+
+    #[cfg(target_family = "wasm")]
+    {
+      #wasm
+    }
+  })
+}
 
 /// Invokes one of the user defined callbacks, eventually attaching some view of
 /// the data (via pointer and length). If the callback errors, the operation is
 /// NOT interrupted.
 #[proc_macro]
-pub fn callback_no_return(input: TokenStream) -> TokenStream { callback_internal(input, false, true) }
+pub fn callback_no_return(input: TokenStream) -> TokenStream {
+  let definition = parse_macro_input!(input as IdentifiersWithExpr);
+  let regular = callback_regular(&definition, false, true);
+  let wasm = callback_wasm(&definition, false, true);
+
+  TokenStream::from(quote! {
+    #[cfg(not(target_family = "wasm"))]
+    {
+      #regular
+    }
+
+    #[cfg(target_family = "wasm")]
+    {
+      #wasm
+    }
+  })
+}
 
 /// Marks the parser as suspended, waiting for more data.
 #[proc_macro]
-pub fn suspend(_input: TokenStream) -> TokenStream { TokenStream::from(quote! { SUSPEND }) }
+pub fn suspend(_input: TokenStream) -> TokenStream { TokenStream::from(quote! { Ok(SUSPEND) }) }
 
 /// Maps a string method to its integer value (which is the enum definition
 /// index).
@@ -721,13 +737,9 @@ pub fn find_method(input: TokenStream) -> TokenStream {
         .join(", ");
 
       if x == "CONNECT" {
-        parse_str::<Arm>(&format!(
-          "[{}, ..] => {{ parser.is_connect.set(true); {} }}",
-          matcher, i
-        ))
-        .unwrap()
+        parse_str::<Arm>(&format!("[{}] => {{ parser.is_connect.set(true); {} }}", matcher, i)).unwrap()
       } else {
-        parse_str::<Arm>(&format!("[{}, ..] => {{ {} }}", matcher, i)).unwrap()
+        parse_str::<Arm>(&format!("[{}] => {{ {} }}", matcher, i)).unwrap()
       }
     })
     .collect();
@@ -744,23 +756,6 @@ pub fn find_method(input: TokenStream) -> TokenStream {
 // #endregion actions
 
 // #region generators
-/// Generates all states for quick resolving.
-#[proc_macro]
-pub fn initialize_states_table(_input: TokenStream) -> TokenStream {
-  let states_assignment: Vec<_> = unsafe { STATES.get().unwrap() }
-    .iter()
-    .map(|x| format_ident!("state_{}", x.to_lowercase()))
-    .collect();
-
-  TokenStream::from(quote! {
-    states_handlers.get_or_init(|| {
-      [
-        #(#states_assignment),*
-      ]
-    });
-  })
-}
-
 /// Generates all parser constants.
 #[proc_macro]
 pub fn generate_constants(_input: TokenStream) -> TokenStream {
@@ -794,22 +789,76 @@ pub fn generate_constants(_input: TokenStream) -> TokenStream {
 
   let states_len = states_ref.len();
 
+  let states_table: Vec<_> = unsafe { STATES.get().unwrap() }
+    .iter()
+    .map(|x| format_ident!("state_{}", x.to_lowercase()))
+    .collect();
+
+  let digit_table: Vec<_> = (0..=255).map(|i| (0x30..=0x39).contains(&i)).collect();
+
+  let hex_digit_table: Vec<_> = (0..=255)
+    .map(|i| (0x30..=0x39).contains(&i) || (0x41..=0x46).contains(&i) || (0x61..=0x66).contains(&i))
+    .collect();
+
+  let token_other_characters = [
+    b'!', b'#', b'$', b'%', b'&', b'\'', b'*', b'+', b'-', b'.', b'^', b'_', b'`', b',', b'~',
+  ];
+
+  let token_table: Vec<_> = (0..=255)
+    .map(|i| {
+      (0x30..=0x39).contains(&i)
+        || (0x41..=0x5A).contains(&i)
+        || (0x61..=0x7A).contains(&i)
+        || token_other_characters.contains(&i)
+    })
+    .collect();
+
+  let mut token_value_table: Vec<_> = (0..=255).map(|_| false).collect();
+  token_value_table[9] = true;
+  token_value_table[32] = true;
+
+  for i in 0x21..=0xff {
+    if i != 0x7f {
+      token_value_table[i] = true;
+    }
+  }
+
+  let mut token_value_quoted_table: Vec<_> = (0..=255).map(|_| false).collect();
+  token_value_quoted_table[9] = true;
+  token_value_quoted_table[32] = true;
+
+  for i in 0x21..=0x7e {
+    token_value_quoted_table[i] = true;
+  }
+
+  let url_other_characters = [
+    b'-', b'.', b'_', b'~', b':', b'/', b'?', b'#', b'[', b']', b'@', b'!', b'$', b'&', b'\'', b'(', b')', b'*', b'+',
+    b',', b';', b'=', b'%',
+  ];
+  let url_table: Vec<_> = (0..=255)
+    .map(|i| {
+      (0x30..=0x39).contains(&i)
+        || (0x41..=0x5A).contains(&i)
+        || (0x61..=0x7A).contains(&i)
+        || url_other_characters.contains(&i)
+    })
+    .collect();
+
+  let mut ws_table: Vec<_> = (0..=255).map(|_| false).collect();
+  ws_table[9] = true;
+  ws_table[32] = true;
+
   TokenStream::from(quote! {
-    type StateHandler = fn (parser: &Parser, data: &[c_uchar]) -> isize;
+    type StateHandler = fn (parser: &Parser, data: &[c_uchar]) -> Result<isize, ParserError>;
 
-    #[cfg(not(target_family = "wasm"))]
     #[no_mangle]
-
-    #[cfg(not(feature = "no-copy"))]
-    pub type Callback = fn (&Parser, *const c_uchar, usize) -> isize;
-
-    #[cfg(feature = "no-copy")]
     pub type Callback = fn (&Parser, usize, usize) -> isize;
 
+    pub const MAX_OFFSETS_COUNT: usize = 2049 * 3; // 2048 + 1 for the initial three status one
     pub const SUSPEND: isize = isize::MIN;
 
     pub const DEBUG: bool = cfg!(debug_assertions);
-    pub const NO_COPY: bool = cfg!(feature = "no-copy");
+    pub const ALL_CALLBACKS: bool = cfg!(feature = "all-callbacks");
 
     pub const AUTODETECT: u8 = 0;
     pub const REQUEST: u8 = 1;
@@ -819,20 +868,49 @@ pub fn generate_constants(_input: TokenStream) -> TokenStream {
     pub const CONNECTION_CLOSE: u8 = 1;
     pub const CONNECTION_UPGRADE: u8 = 2;
 
+    pub const OFFSET_METHOD: usize = 0;
+    pub const OFFSET_URL: usize = 1;
+    pub const OFFSET_PROTOCOL: usize = 2;
+    pub const OFFSET_VERSION: usize = 3;
+    pub const OFFSET_STATUS: usize = 4;
+    pub const OFFSET_REASON: usize = 5;
+    pub const OFFSET_HEADER_NAME: usize = 6;
+    pub const OFFSET_HEADER_VALUE: usize = 7;
+    pub const OFFSET_CHUNK_LENGTH: usize = 8;
+    pub const OFFSET_CHUNK_EXTENSION_NAME: usize = 9;
+    pub const OFFSET_CHUNK_EXTENSION_VALUE: usize = 10;
+    pub const OFFSET_TRAILER_NAME: usize = 11;
+    pub const OFFSET_TRAILER_VALUE: usize = 12;
+
     #(#errors_consts)*
 
     #(#methods_consts)*
 
     #(#states_consts)*
 
-    static digit_table: OnceLock<[bool; 256]> = OnceLock::new();
-    static hex_digit_table: OnceLock<[bool; 256]> = OnceLock::new();
-    static token_table: OnceLock<[bool; 256]> = OnceLock::new();
-    static token_value_table: OnceLock<[bool; 256]> = OnceLock::new();
-    static token_value_quote_table: OnceLock<[bool; 256]> = OnceLock::new();
-    static url_table: OnceLock<[bool; 256]> = OnceLock::new();
-    static ws_table: OnceLock<[bool; 256]> = OnceLock::new();
-    static states_handlers: OnceLock<[StateHandler; #states_len]> = OnceLock::new();
+    /// cbindgen:ignore
+    static digit_table: [bool; 256] = [#(#digit_table),*];
+
+    /// cbindgen:ignore
+    static hex_digit_table: [bool; 256] = [#(#hex_digit_table),*];
+
+    /// cbindgen:ignore
+    static token_table: [bool; 256] = [#(#token_table),*];
+
+    /// cbindgen:ignore
+    static token_value_table: [bool; 256] = [#(#token_value_table),*];
+
+    /// cbindgen:ignore
+    static token_value_quoted_table: [bool; 256] = [#(#token_value_quoted_table),*];
+
+    /// cbindgen:ignore
+    static url_table: [bool; 256] = [#(#url_table),*];
+
+    /// cbindgen:ignore
+    static ws_table: [bool; 256] = [#(#ws_table),*];
+
+    /// cbindgen:ignore
+    static states_handlers: [StateHandler; #states_len] = [#(#states_table),*];
   })
 }
 
@@ -872,17 +950,17 @@ pub fn generate_enums(_input: TokenStream) -> TokenStream {
 
   let methods_into: Vec<_> = methods_ref
     .iter()
-    .map(|x| parse_str::<Arm>(&format!("Methods::{} => String::from(\"{}\")", x.replace('-', "_"), x)).unwrap())
+    .map(|x| parse_str::<Arm>(&format!("Methods::{} => \"{}\"", x.replace('-', "_"), x)).unwrap())
     .collect();
 
   let states_into: Vec<_> = states_ref
     .iter()
-    .map(|x| parse_str::<Arm>(&format!("States::{} => String::from(\"{}\")", x, x)).unwrap())
+    .map(|x| parse_str::<Arm>(&format!("States::{} => \"{}\"", x, x)).unwrap())
     .collect();
 
   let errors_into: Vec<_> = errors_ref
     .iter()
-    .map(|x| parse_str::<Arm>(&format!("Errors::{} => String::from(\"{}\")", x, x)).unwrap())
+    .map(|x| parse_str::<Arm>(&format!("Errors::{} => \"{}\"", x, x)).unwrap())
     .collect();
 
   TokenStream::from(quote! {
@@ -904,6 +982,25 @@ pub fn generate_enums(_input: TokenStream) -> TokenStream {
       KEEPALIVE,
       CLOSE,
       UPGRADE,
+    }
+
+    #[wasm_bindgen]
+    #[repr(u8)]
+    #[derive(Copy, Clone, Debug)]
+    pub enum Offsets {
+      METHOD,
+      URL,
+      PROTOCOL,
+      VERSION,
+      STATUS,
+      REASON,
+      HEADER_NAME,
+      HEADER_VALUE,
+      CHUNK_LENGTH,
+      CHUNK_EXTENSION_NAME,
+      CHUNK_EXTENSION_VALUE,
+      TRAILER_NAME,
+      TRAILER_VALUE,
     }
 
     #[wasm_bindgen]
@@ -952,6 +1049,28 @@ pub fn generate_enums(_input: TokenStream) -> TokenStream {
         }
       }
     }
+    impl TryFrom<usize> for Offsets {
+      type Error = ();
+
+      fn try_from(value: usize) -> Result<Self, ()> {
+        match value {
+          0 => Ok(Offsets::METHOD),
+          1 => Ok(Offsets::URL),
+          2 => Ok(Offsets::PROTOCOL),
+          3 => Ok(Offsets::VERSION),
+          4 => Ok(Offsets::STATUS),
+          5 => Ok(Offsets::REASON),
+          6 => Ok(Offsets::HEADER_NAME),
+          7 => Ok(Offsets::HEADER_VALUE),
+          8 => Ok(Offsets::CHUNK_LENGTH),
+          9 =>  Ok(Offsets::CHUNK_EXTENSION_NAME),
+          10 => Ok(Offsets::CHUNK_EXTENSION_VALUE),
+          11 => Ok(Offsets::TRAILER_NAME),
+          12 => Ok(Offsets::TRAILER_VALUE),
+          _ => Err(())
+        }
+      }
+    }
 
     impl TryFrom<u8> for Methods {
       type Error = ();
@@ -986,44 +1105,66 @@ pub fn generate_enums(_input: TokenStream) -> TokenStream {
       }
     }
 
-    impl Into<String> for MessageTypes {
-      fn into(self) -> String {
+    impl Into<&str> for MessageTypes {
+      fn into(self) -> &'static str {
         match self {
-          MessageTypes::AUTODETECT => String::from("AUTODETECT"),
-          MessageTypes::REQUEST => String::from("REQUEST"),
-          MessageTypes::RESPONSE => String::from("RESPONSE")
+          MessageTypes::AUTODETECT => "AUTODETECT",
+          MessageTypes::REQUEST => "REQUEST",
+          MessageTypes::RESPONSE => "RESPONSE"
         }
       }
     }
 
-    impl Into<String> for Connections {
-      fn into(self) -> String {
+    impl Into<&str> for Connections {
+      fn into(self) -> &'static str {
         match self {
-          Connections::KEEPALIVE => String::from("KEEPALIVE"),
-          Connections::CLOSE => String::from("CLOSE"),
-          Connections::UPGRADE => String::from("UPGRADE")
+          Connections::KEEPALIVE => "KEEPALIVE",
+          Connections::CLOSE => "CLOSE",
+          Connections::UPGRADE => "UPGRADE"
         }
       }
     }
 
-    impl Into<String> for Methods {
-      fn into(self) -> String {
+    impl Into<&str> for Offsets {
+      fn into(self) -> &'static str {
+        match self {
+          Offsets::METHOD => "METHOD",
+          Offsets::URL => "URL",
+          Offsets::PROTOCOL => "PROTOCOL",
+          Offsets::VERSION => "VERSION",
+          Offsets::STATUS => "STATUS",
+          Offsets::REASON => "REASON",
+          Offsets::HEADER_NAME => "HEADER_NAME",
+          Offsets::HEADER_VALUE => "HEADER_VALUE",
+          Offsets::CHUNK_LENGTH => "CHUNK_LENGTH",
+          Offsets::CHUNK_EXTENSION_NAME => "CHUNK_EXTENSION_NAME",
+          Offsets::CHUNK_EXTENSION_VALUE => "CHUNK_EXTENSION_VALUE",
+          Offsets::TRAILER_NAME => "TRAILER_NAME",
+          Offsets::TRAILER_VALUE => "TRAILER_VALUE",
+        }
+      }
+    }
+
+
+
+    impl Into<&str> for Methods {
+      fn into(self) -> &'static str {
         match self {
           #(#methods_into),*
         }
       }
     }
 
-    impl Into<String> for States {
-      fn into(self) -> String {
+    impl Into<&str> for States {
+      fn into(self) -> &'static str {
         match self {
           #(#states_into),*
         }
       }
     }
 
-    impl Into<String> for Errors {
-      fn into(self) -> String {
+    impl Into<&str> for Errors {
+      fn into(self) -> &'static str {
         match self {
           #(#errors_into),*
         }
@@ -1031,31 +1172,37 @@ pub fn generate_enums(_input: TokenStream) -> TokenStream {
     }
 
     impl MessageTypes {
-      pub fn as_string(self) -> String {
+      pub fn as_str(self) -> &'static str {
         self.into()
       }
     }
 
     impl Connections {
-      pub fn as_string(self) -> String {
+      pub fn as_str(self) -> &'static str {
+        self.into()
+      }
+    }
+
+    impl Offsets {
+      pub fn as_str(self) -> &'static str {
         self.into()
       }
     }
 
     impl Methods {
-      pub fn as_string(self) -> String {
+      pub fn as_str(self) -> &'static str {
         self.into()
       }
     }
 
     impl States {
-      pub fn as_string(self) -> String {
+      pub fn as_str(self) -> &'static str {
         self.into()
       }
     }
 
     impl Errors {
-      pub fn as_string(self) -> String {
+      pub fn as_str(self) -> &'static str {
         self.into()
       }
     }
@@ -1074,12 +1221,6 @@ pub fn generate_callbacks(_input: TokenStream) -> TokenStream {
   };
 
   TokenStream::from(quote! {
-    #[cfg(not(feature = "no-copy"))]
-    fn noop_internal(_parser: &Parser, _data: *const c_uchar, _len: usize) -> isize {
-      0
-    }
-
-    #[cfg(feature = "no-copy")]
     fn noop_internal(_parser: &Parser, _data: usize, _len: usize) -> isize {
       0
     }
@@ -1145,7 +1286,7 @@ pub fn generate_callbacks_wasm_setters(_input: TokenStream) -> TokenStream {
         let fn_name = format_ident!("{}", lowercase);
         let cb_name = format_ident!("{}", name);
         let js_name = snake_matcher.replace_all(lowercase.as_str(), |captures: &Captures| captures[1].to_uppercase());
-
+        let error_message = format!("The callback for {} must be a function or a falsy value.", js_name);
         quote! {
           #[wasm_bindgen(js_name=#js_name)]
           pub fn #fn_name(&mut self, cb: Function) -> Result<(), JsValue> {
@@ -1154,7 +1295,7 @@ pub fn generate_callbacks_wasm_setters(_input: TokenStream) -> TokenStream {
               return Ok(())
             } else if !cb.is_function() {
               return Err(
-                js_sys::Error::new(&format!("The callback for {} must be a function or a falsy value.", #js_name)).into()
+                js_sys::Error::new(#error_message).into()
               );
             }
 
@@ -1186,34 +1327,21 @@ pub fn parse(_input: TokenStream) -> TokenStream {
     // if needed
 
     let mut consumed = 0;
-    let mut current: &[u8];
-
-    #[cfg(not(feature = "no-copy"))]
     let mut limit = limit;
-
-    #[cfg(not(feature = "no-copy"))]
     let aggregate: Vec<c_uchar>;
-
-    #[cfg(not(feature = "no-copy"))]
     let unconsumed_len = self.unconsumed_len.get();
 
-    #[cfg(not(feature = "no-copy"))]
-    {
-      current = if unconsumed_len > 0 {
-        unsafe {
-          limit += unconsumed_len;
-          let unconsumed = from_raw_parts(self.unconsumed.get(), unconsumed_len);
+    let mut current = if self.manage_unconsumed.get() && unconsumed_len > 0 {
+      unsafe {
+        limit += unconsumed_len;
+        let unconsumed = from_raw_parts(self.unconsumed.get(), unconsumed_len);
 
-          aggregate = [unconsumed, data].concat();
-          &aggregate[..]
-        }
-      } else {
-        data
-      };
-    }
-
-    #[cfg(feature = "no-copy")]
-    let mut current = data;
+        aggregate = [unconsumed, data].concat();
+        &aggregate[..]
+      }
+    } else {
+      data
+    };
 
     // Limit the data that is currently analyzed
     current = &current[..limit];
@@ -1227,10 +1355,11 @@ pub fn parse(_input: TokenStream) -> TokenStream {
     #[cfg(all(debug_assertions, feature = "debug"))]
     let mut previous_state = self.state.get();
 
-    let handlers = states_handlers.get().unwrap();
-
     // Since states might advance position manually, the parser have to explicitly track it
     let mut initial_position = self.position.update(|_| 0);
+
+    let offsets = self.offsets.get();
+    unsafe { *(offsets.offset(2)) = 0 };
 
     // Until there is data or there is a request to continue
     while !current.is_empty() || self.continue_without_data.get() {
@@ -1239,12 +1368,25 @@ pub fn parse(_input: TokenStream) -> TokenStream {
 
       // If the parser has finished and it receives more data, error
       if self.state.get() == STATE_FINISH {
-        self.fail_str(ERROR_UNEXPECTED_DATA, "unexpected data");
+        let _ = self.fail(ERROR_UNEXPECTED_DATA, "unexpected data");
         continue;
       }
 
       // Apply the current state
-      let result = (handlers[self.state.get() as usize])(self, current);
+      #[cfg(not(target_family = "wasm"))]
+      let result = (states_handlers[self.state.get() as usize])(self, current).unwrap();
+
+      #[cfg(target_family = "wasm")]
+      let result = {
+        let ret = (states_handlers[self.state.get() as usize])(self, current);
+
+        if ret.is_err() {
+          return Err(ret.unwrap_err());
+        }
+
+        ret.unwrap()
+      };
+
       let new_state = self.state.get();
 
       // If the parser finished or errored, execute callbacks
@@ -1259,7 +1401,7 @@ pub fn parse(_input: TokenStream) -> TokenStream {
       }
 
       // Update the position of the parser
-      let new_position = self.position.update(|x| x + (result as u64));
+      let new_position = self.position.update(|x| x + (result as usize));
 
       // Compute how many bytes were actually consumed and then advance the data
       let difference = (new_position - initial_position) as usize;
@@ -1292,23 +1434,24 @@ pub fn parse(_input: TokenStream) -> TokenStream {
 
     self.parsed.update(|x| x + (consumed as u64));
 
-    #[cfg(not(feature = "no-copy"))]
-    unsafe {
-      // Drop any previous retained data
-      if unconsumed_len > 0 {
-        Vec::from_raw_parts(self.unconsumed.get() as *mut c_uchar, unconsumed_len, unconsumed_len);
+    if self.manage_unconsumed.get() {
+      unsafe {
+        // Drop any previous retained data
+        if unconsumed_len > 0 {
+          Vec::from_raw_parts(self.unconsumed.get() as *mut c_uchar, unconsumed_len, unconsumed_len);
 
-        self.unconsumed.set(ptr::null());
-        self.unconsumed_len.set(0);
-      }
+          self.unconsumed.set(ptr::null());
+          self.unconsumed_len.set(0);
+        }
 
-      // If less bytes were consumed than requested, copy the unconsumed portion in
-      // the parser for the next iteration
-      if consumed < limit {
-        let (ptr, len, _) = current.to_vec().into_raw_parts();
+        // If less bytes were consumed than requested, copy the unconsumed portion in
+        // the parser for the next iteration
+        if consumed < limit {
+          let (ptr, len, _) = current.to_vec().into_raw_parts();
 
-        self.unconsumed.set(ptr);
-        self.unconsumed_len.set(len);
+          self.unconsumed.set(ptr);
+          self.unconsumed_len.set(len);
+        }
       }
     }
 
@@ -1321,6 +1464,11 @@ pub fn parse(_input: TokenStream) -> TokenStream {
           "[milo::debug] parse ({:?}, consumed {} of {}) completed in {} ns", self.state.get(), consumed, limit, duration
         );
       }
+    }
+
+    unsafe {
+      *(offsets.offset(0)) = self.state.get() as usize;
+      *(offsets.offset(1)) = consumed;
     }
   })
 }

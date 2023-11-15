@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test {
-  use milo::test_utils::{create_parser, http, parse};
   use milo::STATE_TUNNEL;
+  use milo_test_utils::{create_parser, http, parse};
 
   #[test]
   fn upgrade_connect_request() {

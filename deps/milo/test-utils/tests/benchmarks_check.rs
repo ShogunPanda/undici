@@ -1,9 +1,7 @@
 #[cfg(test)]
 mod test {
-  use milo::{
-    test_utils::{create_parser, http, parse},
-    STATE_ERROR,
-  };
+  use milo::STATE_ERROR;
+  use milo_test_utils::{create_parser, http, parse};
 
   #[test]
   fn benchmark_seanmonstar_httparse() {

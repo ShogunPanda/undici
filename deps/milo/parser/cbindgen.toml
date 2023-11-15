@@ -4,16 +4,18 @@ namespace = "milo"
 
 [parse.expand]
 crates = ["milo"]
-features = ["no-copy"]
 
 [export]
 include = [
+  "CStringWithLength",
   "Callback",
   "MessageTypes",
   "Connections",
   "Methods",
   "States",
   "Errors",
+  "Flags",
   "Parser",
+  "Offsets",
   "methods",
 ]

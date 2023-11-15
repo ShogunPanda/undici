@@ -3,11 +3,8 @@ mod test {
   #[allow(unused_imports)]
   use std::ffi::c_uchar;
 
-  use milo::test_utils::{create_parser, http, parse};
-  use milo::{
-    Parser, REQUEST, RESPONSE, STATE_ERROR, STATE_FINISH, STATE_HEADER_NAME, STATE_MESSAGE, STATE_REQUEST,
-    STATE_RESPONSE, STATE_START,
-  };
+  use milo::{Parser, REQUEST, RESPONSE, STATE_ERROR, STATE_FINISH, STATE_HEADER_NAME, STATE_START};
+  use milo_test_utils::{create_parser, http, parse};
 
   #[test]
   fn basic_disable_autodetect() {
@@ -44,10 +41,54 @@ mod test {
     assert!(matches!(parser.state.get(), STATE_ERROR));
   }
 
-  #[cfg(not(feature = "no-copy"))]
   #[test]
   fn basic_incomplete_string() {
     let parser = create_parser();
+
+    let sample1 = http(r#"GET / HTTP/1.1\r"#);
+    let sample2 = http(r#"1.1\r\n"#);
+    let sample3 = http(r#"Head"#);
+    let sample4 = http(r#"Header:"#);
+    let sample5 = http(r#"Value"#);
+    let sample6 = http(r#"Value\r\n\r\n"#);
+
+    let consumed1 = parse(&parser, &sample1);
+    assert!(consumed1 == sample1.len() - 4);
+    let consumed2 = parse(&parser, &sample2);
+    assert!(consumed2 == sample2.len());
+    let consumed3 = parse(&parser, &sample3);
+    assert!(consumed3 == 0);
+    let consumed4 = parse(&parser, &sample4);
+    assert!(consumed4 == sample4.len());
+    let consumed5 = parse(&parser, &sample5);
+    assert!(consumed5 == 0);
+    let consumed6 = parse(&parser, &sample6);
+    assert!(consumed6 == sample6.len());
+
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
+  }
+
+  #[test]
+  fn basic_incomplete_string_2() {
+    let parser = create_parser();
+
+    parser.mode.set(REQUEST);
+    let sample1 = http(r#"GE"#);
+    let sample2 = http(r#"GET / HTTP/1.1\r\nHost: foo\r\n\r\n"#);
+
+    let consumed1 = parse(&parser, &sample1);
+    assert!(consumed1 == 0);
+
+    let consumed2 = parse(&parser, &sample2);
+    assert!(consumed2 == sample2.len());
+
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
+  }
+
+  #[test]
+  fn basic_incomplete_string_automanaged() {
+    let parser = create_parser();
+    parser.manage_unconsumed.set(true);
 
     let sample1 = http(r#"GET / HTTP/1.1\r"#);
     let sample2 = http(r#"\n"#);
@@ -70,12 +111,30 @@ mod test {
     assert!(consumed6 == sample5.len() + sample6.len());
 
     assert!(!matches!(parser.state.get(), STATE_ERROR));
+
+    // Verify the field is not reset
+    parser.reset(true);
+
+    let consumed1 = parse(&parser, &sample1);
+    assert!(consumed1 == sample1.len() - 4);
+    let consumed2 = parse(&parser, &sample2);
+    assert!(consumed2 == sample2.len() + 4);
+    let consumed3 = parse(&parser, &sample3);
+    assert!(consumed3 == 0);
+    let consumed4 = parse(&parser, &sample4);
+    assert!(consumed4 == sample3.len() + sample4.len());
+    let consumed5 = parse(&parser, &sample5);
+    assert!(consumed5 == 0);
+    let consumed6 = parse(&parser, &sample6);
+    assert!(consumed6 == sample5.len() + sample6.len());
+
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
   }
 
-  #[cfg(not(feature = "no-copy"))]
   #[test]
-  fn basic_incomplete_string_2() {
+  fn basic_incomplete_string_2_automanaged() {
     let parser = create_parser();
+    parser.manage_unconsumed.set(true);
 
     parser.mode.set(REQUEST);
     let sample1 = http(r#"GE"#);
@@ -259,7 +318,7 @@ mod test {
     );
 
     parse(&parser, &keep_alive_connection);
-    assert!(matches!(parser.state.get(), STATE_MESSAGE));
+    assert!(matches!(parser.state.get(), STATE_START));
   }
 
   #[test]
@@ -275,22 +334,10 @@ mod test {
     let sample2 = http(r#"\r\nabc"#); // This will be paused before the body
     let sample3 = http(r#"abc"#);
 
-    #[cfg(not(feature = "no-copy"))]
-    parser
-      .callbacks
-      .on_headers
-      .set(|p: &Parser, _data: *const c_uchar, _size: usize| -> isize {
-        println!("CALLED\n\n");
-        p.pause();
-        0
-      });
-
-    #[cfg(feature = "no-copy")]
     parser
       .callbacks
       .on_headers
       .set(|p: &Parser, _at: usize, _size: usize| -> isize {
-        println!("CALLED\n\n");
         p.pause();
         0
       });
@@ -343,7 +390,7 @@ mod test {
         Header2: Value2\r\n
         Content-Length: 3\r\n
         \r\n
-        abc\r\n\r\n
+        abc
       "#,
     );
 
@@ -358,13 +405,13 @@ mod test {
     );
 
     parse(&parser, &response);
-    assert!(matches!(parser.state.get(), STATE_RESPONSE));
+    assert!(matches!(parser.state.get(), STATE_START));
 
     parser.mode.set(REQUEST);
     parser.reset(false);
 
     parse(&parser, &request);
-    assert!(matches!(parser.state.get(), STATE_REQUEST));
+    assert!(matches!(parser.state.get(), STATE_START));
   }
 
   #[test]
@@ -404,7 +451,7 @@ mod test {
     );
 
     parse(&parser, &keep_alive_connection);
-    assert!(matches!(parser.state.get(), STATE_MESSAGE));
+    assert!(matches!(parser.state.get(), STATE_START));
     parser.finish();
     assert!(matches!(parser.state.get(), STATE_FINISH));
 
@@ -421,5 +468,24 @@ mod test {
     assert!(matches!(parser.state.get(), STATE_HEADER_NAME));
     parser.finish();
     assert!(matches!(parser.state.get(), STATE_ERROR));
+  }
+
+  #[test]
+  fn undici() {
+    let message = http(
+      r#"
+        HTTP/1.1 200 OK\r\n
+        Connection: keep-alive\r\n
+        Content-Length: 65535\r\n
+        Date: Sun, 05 Nov 2023 14:26:18 GMT\r\n
+        Keep-Alive: timeout=600\r\n\r\n
+        @
+      "#,
+    )
+    .replace("@", &format!("{:-<65535}", "-"));
+
+    let parser = create_parser();
+    parse(&parser, &message);
+    assert!(!matches!(parser.state.get(), STATE_ERROR));
   }
 }

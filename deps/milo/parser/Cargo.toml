@@ -10,14 +10,13 @@ crate_type = ["cdylib", "staticlib", "lib"]
 [dependencies]
 console_error_panic_hook = { version = "0.1.7", optional = true }
 js-sys = "0.3.64"
-milo-parser-macros = { path = "../macros" }
-regex = "1.9.1"
+milo-macros = { path = "../macros" }
 wasm-bindgen = "0.2.84"
 
 [features]
 default = ["console_error_panic_hook"]
 debug = []
-no-copy = []
+all-callbacks = []
 
 [profile.bench]
 opt-level = 3

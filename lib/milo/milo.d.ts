@@ -275,36 +275,17 @@ export function setSkipBody(raw: number, value: boolean): void;
 export function setIsConnect(raw: number, value: boolean): void;
 /**
 */
-export enum Callbacks {
-  beforeStateChange = 0,
-  afterStateChange = 1,
-  onError = 2,
-  onFinish = 3,
-  onMessageStart = 4,
-  onMessageComplete = 5,
-  onRequest = 6,
-  onResponse = 7,
-  onReset = 8,
-  onMethod = 9,
-  onUrl = 10,
-  onProtocol = 11,
-  onVersion = 12,
-  onStatus = 13,
-  onReason = 14,
-  onHeaderName = 15,
-  onHeaderValue = 16,
-  onHeaders = 17,
-  onConnect = 18,
-  onUpgrade = 19,
-  onChunkLength = 20,
-  onChunkExtensionName = 21,
-  onChunkExtensionValue = 22,
-  onChunk = 23,
-  onBody = 24,
-  onData = 25,
-  onTrailerName = 26,
-  onTrailerValue = 27,
-  onTrailers = 28,
+export enum MessageTypes {
+  AUTODETECT = 0,
+  REQUEST = 1,
+  RESPONSE = 2,
+}
+/**
+*/
+export enum Connections {
+  KEEPALIVE = 0,
+  CLOSE = 1,
+  UPGRADE = 2,
 }
 /**
 */
@@ -361,10 +342,38 @@ export enum Methods {
 }
 /**
 */
-export enum Connections {
-  KEEPALIVE = 0,
-  CLOSE = 1,
-  UPGRADE = 2,
+export enum States {
+  START = 0,
+  FINISH = 1,
+  ERROR = 2,
+  AUTODETECT = 3,
+  REQUEST = 4,
+  REQUEST_METHOD = 5,
+  REQUEST_URL = 6,
+  REQUEST_PROTOCOL = 7,
+  REQUEST_VERSION = 8,
+  RESPONSE = 9,
+  RESPONSE_VERSION = 10,
+  RESPONSE_STATUS = 11,
+  RESPONSE_REASON = 12,
+  HEADER_NAME = 13,
+  HEADER_TRANSFER_ENCODING = 14,
+  HEADER_CONTENT_LENGTH = 15,
+  HEADER_CONNECTION = 16,
+  HEADER_VALUE = 17,
+  HEADERS = 18,
+  TUNNEL = 19,
+  BODY_VIA_CONTENT_LENGTH = 20,
+  BODY_WITH_NO_LENGTH = 21,
+  CHUNK_LENGTH = 22,
+  CHUNK_EXTENSION_NAME = 23,
+  CHUNK_EXTENSION_VALUE = 24,
+  CHUNK_EXTENSION_QUOTED_VALUE = 25,
+  CHUNK_DATA = 26,
+  CHUNK_END = 27,
+  CRLF_AFTER_LAST_CHUNK = 28,
+  TRAILER_NAME = 29,
+  TRAILER_VALUE = 30,
 }
 /**
 */
@@ -412,45 +421,36 @@ export enum Offsets {
 }
 /**
 */
-export enum States {
-  START = 0,
-  FINISH = 1,
-  ERROR = 2,
-  AUTODETECT = 3,
-  REQUEST = 4,
-  REQUEST_METHOD = 5,
-  REQUEST_URL = 6,
-  REQUEST_PROTOCOL = 7,
-  REQUEST_VERSION = 8,
-  RESPONSE = 9,
-  RESPONSE_VERSION = 10,
-  RESPONSE_STATUS = 11,
-  RESPONSE_REASON = 12,
-  HEADER_NAME = 13,
-  HEADER_TRANSFER_ENCODING = 14,
-  HEADER_CONTENT_LENGTH = 15,
-  HEADER_CONNECTION = 16,
-  HEADER_VALUE = 17,
-  HEADERS = 18,
-  TUNNEL = 19,
-  BODY_VIA_CONTENT_LENGTH = 20,
-  BODY_WITH_NO_LENGTH = 21,
-  CHUNK_LENGTH = 22,
-  CHUNK_EXTENSION_NAME = 23,
-  CHUNK_EXTENSION_VALUE = 24,
-  CHUNK_EXTENSION_QUOTED_VALUE = 25,
-  CHUNK_DATA = 26,
-  CHUNK_END = 27,
-  CRLF_AFTER_LAST_CHUNK = 28,
-  TRAILER_NAME = 29,
-  TRAILER_VALUE = 30,
-}
-/**
-*/
-export enum MessageTypes {
-  AUTODETECT = 0,
-  REQUEST = 1,
-  RESPONSE = 2,
+export enum Callbacks {
+  beforeStateChange = 0,
+  afterStateChange = 1,
+  onError = 2,
+  onFinish = 3,
+  onMessageStart = 4,
+  onMessageComplete = 5,
+  onRequest = 6,
+  onResponse = 7,
+  onReset = 8,
+  onMethod = 9,
+  onUrl = 10,
+  onProtocol = 11,
+  onVersion = 12,
+  onStatus = 13,
+  onReason = 14,
+  onHeaderName = 15,
+  onHeaderValue = 16,
+  onHeaders = 17,
+  onConnect = 18,
+  onUpgrade = 19,
+  onChunkLength = 20,
+  onChunkExtensionName = 21,
+  onChunkExtensionValue = 22,
+  onChunk = 23,
+  onBody = 24,
+  onData = 25,
+  onTrailerName = 26,
+  onTrailerValue = 27,
+  onTrailers = 28,
 }
 
 

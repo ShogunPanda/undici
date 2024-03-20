@@ -44,9 +44,9 @@ test('1 pending interceptor', t => {
 1 interceptor is pending:
 
 ┌─────────┬────────┬───────────────────────┬──────┬─────────────┬────────────┬─────────────┬───────────┐
-│ (index) │ Method │        Origin         │ Path │ Status code │ Persistent │ Invocations │ Remaining │
+│ (index) │ Method │ Origin                │ Path │ Status code │ Persistent │ Invocations │ Remaining │
 ├─────────┼────────┼───────────────────────┼──────┼─────────────┼────────────┼─────────────┼───────────┤
-│    0    │ 'GET'  │ 'https://example.com' │ '/'  │     200     │    '❌'    │      0      │     1     │
+│ 0       │ 'GET'  │ 'https://example.com' │ '/'  │ 200         │ '❌'       │ 0           │ 1         │
 └─────────┴────────┴───────────────────────┴──────┴─────────────┴────────────┴─────────────┴───────────┘
 `.trim())
 })
@@ -65,10 +65,10 @@ test('2 pending interceptors', t => {
 2 interceptors are pending:
 
 ┌─────────┬────────┬──────────────────────────┬──────────────┬─────────────┬────────────┬─────────────┬───────────┐
-│ (index) │ Method │          Origin          │     Path     │ Status code │ Persistent │ Invocations │ Remaining │
+│ (index) │ Method │ Origin                   │ Path         │ Status code │ Persistent │ Invocations │ Remaining │
 ├─────────┼────────┼──────────────────────────┼──────────────┼─────────────┼────────────┼─────────────┼───────────┤
-│    0    │ 'GET'  │  'https://example.com'   │     '/'      │     200     │    '❌'    │      0      │     1     │
-│    1    │ 'GET'  │ 'https://localhost:9999' │ '/some/path' │     204     │    '❌'    │      0      │     1     │
+│ 0       │ 'GET'  │ 'https://example.com'    │ '/'          │ 200         │ '❌'       │ 0           │ 1         │
+│ 1       │ 'GET'  │ 'https://localhost:9999' │ '/some/path' │ 204         │ '❌'       │ 0           │ 1         │
 └─────────┴────────┴──────────────────────────┴──────────────┴─────────────┴────────────┴─────────────┴───────────┘
 `.trim())
 })
@@ -127,12 +127,12 @@ test('Variations of persist(), times(), and pending status', async t => {
 4 interceptors are pending:
 
 ┌─────────┬────────┬──────────────────────────┬──────────────────────┬─────────────┬────────────┬─────────────┬───────────┐
-│ (index) │ Method │          Origin          │         Path         │ Status code │ Persistent │ Invocations │ Remaining │
+│ (index) │ Method │ Origin                   │ Path                 │ Status code │ Persistent │ Invocations │ Remaining │
 ├─────────┼────────┼──────────────────────────┼──────────────────────┼─────────────┼────────────┼─────────────┼───────────┤
-│    0    │ 'GET'  │  'https://example.com'   │         '/'          │     200     │    '❌'    │      0      │     1     │
-│    1    │ 'GET'  │ 'https://localhost:9999' │ '/persistent/unused' │     200     │    '✅'    │      0      │ Infinity  │
-│    2    │ 'GET'  │ 'https://localhost:9999' │   '/times/partial'   │     200     │    '❌'    │      1      │     4     │
-│    3    │ 'GET'  │ 'https://localhost:9999' │   '/times/unused'    │     200     │    '❌'    │      0      │     2     │
+│ 0       │ 'GET'  │ 'https://example.com'    │ '/'                  │ 200         │ '❌'       │ 0           │ 1         │
+│ 1       │ 'GET'  │ 'https://localhost:9999' │ '/persistent/unused' │ 200         │ '✅'       │ 0           │ Infinity  │
+│ 2       │ 'GET'  │ 'https://localhost:9999' │ '/times/partial'     │ 200         │ '❌'       │ 1           │ 4         │
+│ 3       │ 'GET'  │ 'https://localhost:9999' │ '/times/unused'      │ 200         │ '❌'       │ 0           │ 2         │
 └─────────┴────────┴──────────────────────────┴──────────────────────┴─────────────┴────────────┴─────────────┴───────────┘
 `.trim())
 })
@@ -176,9 +176,9 @@ test('defaults to rendering output with terminal color when process.env.CI is un
 1 interceptor is pending:
 
 ┌─────────┬────────┬───────────────────────┬──────┬─────────────┬────────────┬─────────────┬───────────┐
-│ (index) │ Method │        Origin         │ Path │ Status code │ Persistent │ Invocations │ Remaining │
+│ (index) │ Method │ Origin                │ Path │ Status code │ Persistent │ Invocations │ Remaining │
 ├─────────┼────────┼───────────────────────┼──────┼─────────────┼────────────┼─────────────┼───────────┤
-│    0    │ \u001b[32m'GET'\u001b[39m  │ \u001b[32m'https://example.com'\u001b[39m │ \u001b[32m'/'\u001b[39m  │     \u001b[33m200\u001b[39m     │    \u001b[32m'❌'\u001b[39m    │      \u001b[33m0\u001b[39m      │     \u001b[33m1\u001b[39m     │
+│ 0       │ \u001b[32m'GET'\u001b[39m  │ \u001b[32m'https://example.com'\u001b[39m │ \u001b[32m'/'\u001b[39m  │ \u001b[33m200\u001b[39m         │ \u001b[32m'❌'\u001b[39m       │ \u001b[33m0\u001b[39m           │ \u001b[33m1\u001b[39m         │
 └─────────┴────────┴───────────────────────┴──────┴─────────────┴────────────┴─────────────┴───────────┘
 `.trim())
 

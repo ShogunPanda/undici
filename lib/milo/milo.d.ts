@@ -1,6 +1,9 @@
 /* tslint:disable */
 /* eslint-disable */
 /**
+*/
+export function init_error_handler(): void;
+/**
 * @param {number} len
 * @returns {number}
 */
@@ -36,6 +39,11 @@ export function reset(raw: number, keep_parsed: boolean): void;
 */
 export function clear(raw: number): void;
 /**
+* Clear the parser offsets.
+* @param {number} raw
+*/
+export function clearOffsets(raw: number): void;
+/**
 * @param {number} raw
 * @param {number} data
 * @param {number} limit
@@ -66,11 +74,6 @@ export function finish(raw: number): void;
 */
 export function fail(raw: number, code: number, reason: string): void;
 /**
-* Clear the parser offsets.
-* @param {number} raw
-*/
-export function clearOffsets(raw: number): void;
-/**
 * Returns the current parser's state as string.
 * @param {number} raw
 * @returns {string}
@@ -89,140 +92,150 @@ export function getErrorCodeString(raw: number): string;
 */
 export function getErrorDescriptionString(raw: number): string;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {number}
 */
-export function getState(raw: number): number;
+export function getId(parser: number): number;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {number}
 */
-export function getPosition(raw: number): number;
+export function getMode(parser: number): number;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {number}
 */
-export function getErrorCode(raw: number): number;
+export function getState(parser: number): number;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {number}
 */
-export function getErrorDescriptionLen(raw: number): number;
+export function getPosition(parser: number): number;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {number}
 */
-export function getUnconsumedLen(raw: number): number;
+export function getOffsetsCount(parser: number): number;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {number}
 */
-export function getId(raw: number): number;
+export function getErrorCode(parser: number): number;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {number}
 */
-export function getMode(raw: number): number;
+export function getErrorDescriptionLen(parser: number): number;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {number}
 */
-export function getMessageType(raw: number): number;
+export function getUnconsumedLen(parser: number): number;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {number}
 */
-export function getMethod(raw: number): number;
+export function getMessageType(parser: number): number;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {number}
 */
-export function getStatus(raw: number): number;
+export function getMethod(parser: number): number;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {number}
 */
-export function getVersionMajor(raw: number): number;
+export function getStatus(parser: number): number;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {number}
 */
-export function getVersionMinor(raw: number): number;
+export function getVersionMajor(parser: number): number;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {number}
 */
-export function getConnection(raw: number): number;
+export function getVersionMinor(parser: number): number;
 /**
-* @param {number} raw
+* @param {number} parser
+* @returns {number}
+*/
+export function getConnection(parser: number): number;
+/**
+* @param {number} parser
 * @returns {bigint}
 */
-export function getParsed(raw: number): bigint;
+export function getParsed(parser: number): bigint;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {bigint}
 */
-export function getContentLength(raw: number): bigint;
+export function getContentLength(parser: number): bigint;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {bigint}
 */
-export function getChunkSize(raw: number): bigint;
+export function getChunkSize(parser: number): bigint;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {bigint}
 */
-export function getRemainingContentLength(raw: number): bigint;
+export function getRemainingContentLength(parser: number): bigint;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {bigint}
 */
-export function getRemainingChunkSize(raw: number): bigint;
+export function getRemainingChunkSize(parser: number): bigint;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {boolean}
 */
-export function isPaused(raw: number): boolean;
+export function isPaused(parser: number): boolean;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {boolean}
 */
-export function manageUnconsumed(raw: number): boolean;
+export function isManageUnconsumed(parser: number): boolean;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {boolean}
 */
-export function continueWithoutData(raw: number): boolean;
+export function isContinueWithoutData(parser: number): boolean;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {boolean}
 */
-export function isConnect(raw: number): boolean;
+export function isConnect(parser: number): boolean;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {boolean}
 */
-export function hasContentLength(raw: number): boolean;
+export function hasContentLength(parser: number): boolean;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {boolean}
 */
-export function hasChunkedTransferEncoding(raw: number): boolean;
+export function hasChunkedTransferEncoding(parser: number): boolean;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {boolean}
 */
-export function hasUpgrade(raw: number): boolean;
+export function hasUpgrade(parser: number): boolean;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {boolean}
 */
-export function hasTrailers(raw: number): boolean;
+export function hasTrailers(parser: number): boolean;
 /**
-* @param {number} raw
+* @param {number} parser
 * @returns {boolean}
 */
-export function skipBody(raw: number): boolean;
+export function isSkipBody(parser: number): boolean;
+/**
+* @param {number} raw
+* @returns {number}
+*/
+export function getValues(raw: number): number;
 /**
 * @param {number} raw
 * @returns {number}
@@ -240,45 +253,83 @@ export function getUnconsumed(raw: number): number;
 export function getErrorDescription(raw: number): number;
 /**
 * @param {number} raw
-* @returns {number}
-*/
-export function getOwner(raw: number): number;
-/**
-* @param {number} raw
 * @returns {any}
 */
 export function getCallbackError(raw: number): any;
 /**
-* @param {number} raw
+* @param {number} parser
 * @param {number} value
 */
-export function setId(raw: number, value: number): void;
+export function setMode(parser: number, value: number): void;
 /**
-* @param {number} raw
-* @param {number} value
-*/
-export function setMode(raw: number, value: number): void;
-/**
-* @param {number} raw
+* @param {number} parser
 * @param {boolean} value
 */
-export function setManageUnconsumed(raw: number, value: boolean): void;
+export function setManageUnconsumed(parser: number, value: boolean): void;
 /**
-* @param {number} raw
+* @param {number} parser
 * @param {boolean} value
 */
-export function setSkipBody(raw: number, value: boolean): void;
+export function setSkipBody(parser: number, value: boolean): void;
 /**
-* @param {number} raw
+* @param {number} parser
 * @param {boolean} value
 */
-export function setIsConnect(raw: number, value: boolean): void;
+export function setIsConnect(parser: number, value: boolean): void;
 /**
 */
-export enum MessageTypes {
-  AUTODETECT = 0,
-  REQUEST = 1,
-  RESPONSE = 2,
+export enum States {
+  START = 0,
+  FINISH = 1,
+  ERROR = 2,
+  AUTODETECT = 3,
+  REQUEST = 4,
+  REQUEST_METHOD = 5,
+  REQUEST_URL = 6,
+  REQUEST_PROTOCOL = 7,
+  REQUEST_VERSION = 8,
+  RESPONSE = 9,
+  RESPONSE_VERSION = 10,
+  RESPONSE_STATUS = 11,
+  RESPONSE_REASON = 12,
+  HEADER_NAME = 13,
+  HEADER_TRANSFER_ENCODING = 14,
+  HEADER_CONTENT_LENGTH = 15,
+  HEADER_CONNECTION = 16,
+  HEADER_VALUE = 17,
+  HEADERS = 18,
+  TUNNEL = 19,
+  BODY_VIA_CONTENT_LENGTH = 20,
+  BODY_WITH_NO_LENGTH = 21,
+  CHUNK_LENGTH = 22,
+  CHUNK_EXTENSION_NAME = 23,
+  CHUNK_EXTENSION_VALUE = 24,
+  CHUNK_EXTENSION_QUOTED_VALUE = 25,
+  CHUNK_DATA = 26,
+  CHUNK_END = 27,
+  CRLF_AFTER_LAST_CHUNK = 28,
+  TRAILER_NAME = 29,
+  TRAILER_VALUE = 30,
+}
+/**
+*/
+export enum Errors {
+  NONE = 0,
+  UNEXPECTED_DATA = 1,
+  UNEXPECTED_EOF = 2,
+  CALLBACK_ERROR = 3,
+  UNEXPECTED_CHARACTER = 4,
+  UNEXPECTED_CONTENT_LENGTH = 5,
+  UNEXPECTED_TRANSFER_ENCODING = 6,
+  UNEXPECTED_CONTENT = 7,
+  UNEXPECTED_TRAILERS = 8,
+  INVALID_VERSION = 9,
+  INVALID_STATUS = 10,
+  INVALID_CONTENT_LENGTH = 11,
+  INVALID_TRANSFER_ENCODING = 12,
+  INVALID_CHUNK_SIZE = 13,
+  MISSING_CONNECTION_UPGRADE = 14,
+  UNSUPPORTED_HTTP_VERSION = 15,
 }
 /**
 */
@@ -342,85 +393,6 @@ export enum Methods {
 }
 /**
 */
-export enum States {
-  START = 0,
-  FINISH = 1,
-  ERROR = 2,
-  AUTODETECT = 3,
-  REQUEST = 4,
-  REQUEST_METHOD = 5,
-  REQUEST_URL = 6,
-  REQUEST_PROTOCOL = 7,
-  REQUEST_VERSION = 8,
-  RESPONSE = 9,
-  RESPONSE_VERSION = 10,
-  RESPONSE_STATUS = 11,
-  RESPONSE_REASON = 12,
-  HEADER_NAME = 13,
-  HEADER_TRANSFER_ENCODING = 14,
-  HEADER_CONTENT_LENGTH = 15,
-  HEADER_CONNECTION = 16,
-  HEADER_VALUE = 17,
-  HEADERS = 18,
-  TUNNEL = 19,
-  BODY_VIA_CONTENT_LENGTH = 20,
-  BODY_WITH_NO_LENGTH = 21,
-  CHUNK_LENGTH = 22,
-  CHUNK_EXTENSION_NAME = 23,
-  CHUNK_EXTENSION_VALUE = 24,
-  CHUNK_EXTENSION_QUOTED_VALUE = 25,
-  CHUNK_DATA = 26,
-  CHUNK_END = 27,
-  CRLF_AFTER_LAST_CHUNK = 28,
-  TRAILER_NAME = 29,
-  TRAILER_VALUE = 30,
-}
-/**
-*/
-export enum Errors {
-  NONE = 0,
-  UNEXPECTED_DATA = 1,
-  UNEXPECTED_EOF = 2,
-  CALLBACK_ERROR = 3,
-  UNEXPECTED_CHARACTER = 4,
-  UNEXPECTED_CONTENT_LENGTH = 5,
-  UNEXPECTED_TRANSFER_ENCODING = 6,
-  UNEXPECTED_CONTENT = 7,
-  UNEXPECTED_TRAILERS = 8,
-  INVALID_VERSION = 9,
-  INVALID_STATUS = 10,
-  INVALID_CONTENT_LENGTH = 11,
-  INVALID_TRANSFER_ENCODING = 12,
-  INVALID_CHUNK_SIZE = 13,
-  MISSING_CONNECTION_UPGRADE = 14,
-  UNSUPPORTED_HTTP_VERSION = 15,
-}
-/**
-*/
-export enum Offsets {
-  MESSAGE_START = 0,
-  MESSAGE_COMPLETE = 1,
-  METHOD = 2,
-  URL = 3,
-  PROTOCOL = 4,
-  VERSION = 5,
-  STATUS = 6,
-  REASON = 7,
-  HEADER_NAME = 8,
-  HEADER_VALUE = 9,
-  HEADERS = 10,
-  CHUNK_LENGTH = 11,
-  CHUNK_EXTENSION_NAME = 12,
-  CHUNK_EXTENSION_VALUE = 13,
-  CHUNK = 14,
-  DATA = 15,
-  BODY = 16,
-  TRAILER_NAME = 17,
-  TRAILER_VALUE = 18,
-  TRAILERS = 19,
-}
-/**
-*/
 export enum Callbacks {
   beforeStateChange = 0,
   afterStateChange = 1,
@@ -451,6 +423,37 @@ export enum Callbacks {
   onTrailerName = 26,
   onTrailerValue = 27,
   onTrailers = 28,
+}
+/**
+*/
+export enum Offsets {
+  MESSAGE_START = 0,
+  MESSAGE_COMPLETE = 1,
+  METHOD = 2,
+  URL = 3,
+  PROTOCOL = 4,
+  VERSION = 5,
+  STATUS = 6,
+  REASON = 7,
+  HEADER_NAME = 8,
+  HEADER_VALUE = 9,
+  HEADERS = 10,
+  CHUNK_LENGTH = 11,
+  CHUNK_EXTENSION_NAME = 12,
+  CHUNK_EXTENSION_VALUE = 13,
+  CHUNK = 14,
+  DATA = 15,
+  BODY = 16,
+  TRAILER_NAME = 17,
+  TRAILER_VALUE = 18,
+  TRAILERS = 19,
+}
+/**
+*/
+export enum MessageTypes {
+  AUTODETECT = 0,
+  REQUEST = 1,
+  RESPONSE = 2,
 }
 
 
@@ -511,35 +514,35 @@ export declare const METHOD_SETUP: number = 45
 export declare const METHOD_SET_PARAMETER: number = 46
 export declare const METHOD_TEARDOWN: number = 47
 export declare const METHOD_PURGE: number = 48
-export declare const CALLBACKS_BEFORE_STATE_CHANGE: number = 0
-export declare const CALLBACKS_AFTER_STATE_CHANGE: number = 1
-export declare const CALLBACKS_ON_ERROR: number = 2
-export declare const CALLBACKS_ON_FINISH: number = 3
-export declare const CALLBACKS_ON_MESSAGE_START: number = 4
-export declare const CALLBACKS_ON_MESSAGE_COMPLETE: number = 5
-export declare const CALLBACKS_ON_REQUEST: number = 6
-export declare const CALLBACKS_ON_RESPONSE: number = 7
-export declare const CALLBACKS_ON_RESET: number = 8
-export declare const CALLBACKS_ON_METHOD: number = 9
-export declare const CALLBACKS_ON_URL: number = 10
-export declare const CALLBACKS_ON_PROTOCOL: number = 11
-export declare const CALLBACKS_ON_VERSION: number = 12
-export declare const CALLBACKS_ON_STATUS: number = 13
-export declare const CALLBACKS_ON_REASON: number = 14
-export declare const CALLBACKS_ON_HEADER_NAME: number = 15
-export declare const CALLBACKS_ON_HEADER_VALUE: number = 16
-export declare const CALLBACKS_ON_HEADERS: number = 17
-export declare const CALLBACKS_ON_CONNECT: number = 18
-export declare const CALLBACKS_ON_UPGRADE: number = 19
-export declare const CALLBACKS_ON_CHUNK_LENGTH: number = 20
-export declare const CALLBACKS_ON_CHUNK_EXTENSION_NAME: number = 21
-export declare const CALLBACKS_ON_CHUNK_EXTENSION_VALUE: number = 22
-export declare const CALLBACKS_ON_CHUNK: number = 23
-export declare const CALLBACKS_ON_BODY: number = 24
-export declare const CALLBACKS_ON_DATA: number = 25
-export declare const CALLBACKS_ON_TRAILER_NAME: number = 26
-export declare const CALLBACKS_ON_TRAILER_VALUE: number = 27
-export declare const CALLBACKS_ON_TRAILERS: number = 28
+export declare const CALLBACK_BEFORE_STATE_CHANGE: number = 0
+export declare const CALLBACK_AFTER_STATE_CHANGE: number = 1
+export declare const CALLBACK_ON_ERROR: number = 2
+export declare const CALLBACK_ON_FINISH: number = 3
+export declare const CALLBACK_ON_MESSAGE_START: number = 4
+export declare const CALLBACK_ON_MESSAGE_COMPLETE: number = 5
+export declare const CALLBACK_ON_REQUEST: number = 6
+export declare const CALLBACK_ON_RESPONSE: number = 7
+export declare const CALLBACK_ON_RESET: number = 8
+export declare const CALLBACK_ON_METHOD: number = 9
+export declare const CALLBACK_ON_URL: number = 10
+export declare const CALLBACK_ON_PROTOCOL: number = 11
+export declare const CALLBACK_ON_VERSION: number = 12
+export declare const CALLBACK_ON_STATUS: number = 13
+export declare const CALLBACK_ON_REASON: number = 14
+export declare const CALLBACK_ON_HEADER_NAME: number = 15
+export declare const CALLBACK_ON_HEADER_VALUE: number = 16
+export declare const CALLBACK_ON_HEADERS: number = 17
+export declare const CALLBACK_ON_CONNECT: number = 18
+export declare const CALLBACK_ON_UPGRADE: number = 19
+export declare const CALLBACK_ON_CHUNK_LENGTH: number = 20
+export declare const CALLBACK_ON_CHUNK_EXTENSION_NAME: number = 21
+export declare const CALLBACK_ON_CHUNK_EXTENSION_VALUE: number = 22
+export declare const CALLBACK_ON_CHUNK: number = 23
+export declare const CALLBACK_ON_BODY: number = 24
+export declare const CALLBACK_ON_DATA: number = 25
+export declare const CALLBACK_ON_TRAILER_NAME: number = 26
+export declare const CALLBACK_ON_TRAILER_VALUE: number = 27
+export declare const CALLBACK_ON_TRAILERS: number = 28
 export declare const ERROR_NONE: number = 0
 export declare const ERROR_UNEXPECTED_DATA: number = 1
 export declare const ERROR_UNEXPECTED_EOF: number = 2
@@ -576,6 +579,36 @@ export declare const OFFSET_BODY: number = 16
 export declare const OFFSET_TRAILER_NAME: number = 17
 export declare const OFFSET_TRAILER_VALUE: number = 18
 export declare const OFFSET_TRAILERS: number = 19
+export declare const VALUE_ID: number = 0
+export declare const VALUE_MODE: number = 4
+export declare const VALUE_STATE: number = 8
+export declare const VALUE_POSITION: number = 12
+export declare const VALUE_OFFSETS_COUNT: number = 16
+export declare const VALUE_ERROR_CODE: number = 20
+export declare const VALUE_ERROR_DESCRIPTION_LEN: number = 24
+export declare const VALUE_UNCONSUMED_LEN: number = 28
+export declare const VALUE_MESSAGE_TYPE: number = 32
+export declare const VALUE_METHOD: number = 36
+export declare const VALUE_STATUS: number = 40
+export declare const VALUE_VERSION_MAJOR: number = 44
+export declare const VALUE_VERSION_MINOR: number = 48
+export declare const VALUE_CONNECTION: number = 52
+export declare const VALUE_PARSED: number = 56
+export declare const VALUE_CONTENT_LENGTH: number = 64
+export declare const VALUE_CHUNK_SIZE: number = 72
+export declare const VALUE_REMAINING_CONTENT_LENGTH: number = 80
+export declare const VALUE_REMAINING_CHUNK_SIZE: number = 88
+export declare const VALUE_PAUSED: number = 96
+export declare const VALUE_MANAGE_UNCONSUMED: number = 100
+export declare const VALUE_CONTINUE_WITHOUT_DATA: number = 104
+export declare const VALUE_IS_CONNECT: number = 108
+export declare const VALUE_HAS_CONTENT_LENGTH: number = 112
+export declare const VALUE_HAS_CHUNKED_TRANSFER_ENCODING: number = 116
+export declare const VALUE_HAS_UPGRADE: number = 120
+export declare const VALUE_HAS_TRAILERS: number = 124
+export declare const VALUE_SKIP_BODY: number = 128
+export declare const VALUES_SIZE: number = 132
+export declare const OFFSETS_SIZE: number = 2048
 export declare const STATE_START: number = 0
 export declare const STATE_FINISH: number = 1
 export declare const STATE_ERROR: number = 2
@@ -607,5 +640,5 @@ export declare const STATE_CHUNK_END: number = 27
 export declare const STATE_CRLF_AFTER_LAST_CHUNK: number = 28
 export declare const STATE_TRAILER_NAME: number = 29
 export declare const STATE_TRAILER_VALUE: number = 30
-export declare const FLAGS_DEBUG: boolean = false
+export declare const FLAG_DEBUG: boolean = true
 export declare const memory: WebAssembly.Memory

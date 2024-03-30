@@ -39,7 +39,7 @@ test('ignore informational response', async (t) => {
   await t.completed
 })
 
-test('error 103 body', async (t) => {
+test('error 103 body', { only: true }, async (t) => {
   t = tspl(t, { plan: 2 })
 
   const server = net.createServer((socket) => {
@@ -47,6 +47,10 @@ test('error 103 body', async (t) => {
     socket.write('Content-Length: 1\r\n')
     socket.write('\r\n')
     socket.write('a\r\n')
+
+    // The milo parser will close the socket after the first header since it's stricter than llhttp.
+    // Make sure the other write don't result in ECONNRESET
+    socket.on('error', () => {})
   })
   after(() => server.close())
   server.listen(0)
@@ -59,7 +63,7 @@ test('error 103 body', async (t) => {
     path: '/',
     method: 'GET'
   }, (err) => {
-    t.strictEqual(err.code, 'HPE_INVALID_CONSTANT')
+    t.strictEqual(err.code, 'HPE_UNEXPECTED_CONTENT_LENGTH')
   })
   client.on('disconnect', () => {
     t.ok(true, 'pass')

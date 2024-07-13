@@ -1252,3 +1252,49 @@ test('request post body DataView', async (t) => {
 
   await t.completed
 })
+
+test('unconsumed data from the parser', async (t) => {
+  t = tspl(t, { plan: 5 })
+
+  const server = net.createServer((socket) => {
+    const lines = [
+      'HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Type: text/plain\r\nContent',
+      '-Length: 10\r\n\r\n1234567890'
+    ]
+    socket.write(lines[0])
+    setTimeout(() => {
+      socket.write(lines[1])
+
+      // Unfortunately calling destroy synchronously might get us flaky results,
+      // therefore we delay it to the next event loop run.
+      // setImmediate(socket.destroy.bind(socket))
+      setImmediate(socket.destroy.bind(socket))
+    }, 1000)
+  })
+  after(() => server.close())
+
+  server.listen(0, () => {
+    const client = new Client(`http://localhost:${server.address().port}`, {
+      keepAliveTimeout: 300e3
+    })
+    after(() => client.close())
+
+    client.request({ path: '/', method: 'GET' }, (err, data) => {
+      t.ifError(err)
+      const { statusCode, headers, body } = data
+      t.strictEqual(statusCode, 200)
+      t.strictEqual(headers['content-type'], 'text/plain')
+      t.strictEqual(headers['content-length'], '10')
+
+      const bufs = []
+      body.on('data', (buf) => {
+        bufs.push(buf)
+      })
+      body.on('end', () => {
+        t.strictEqual('1234567890', Buffer.concat(bufs).toString('utf8'))
+      })
+    })
+  })
+
+  await t.completed
+})

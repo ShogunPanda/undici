@@ -490,7 +490,7 @@ test('pool upgrade promise', async (t) => {
 
   const server = net.createServer((c) => {
     c.on('data', (d) => {
-      c.write('HTTP/1.1 101\r\n')
+      c.write('HTTP/1.1 101 Switching Protocols\r\n')
       c.write('hello: world\r\n')
       c.write('connection: upgrade\r\n')
       c.write('upgrade: websocket\r\n')
